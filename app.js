@@ -360,7 +360,7 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
   }
   if (best) {
     const conf = Math.min(99, best.conf);
-    return { text: best.text, conf, lines: [{ text: best.text, conf, words: [] }], score: 1000 + best.support };
+    return { text: best.text, conf, lines: [{ text: best.text, conf, words: [] }], score: 1000 + best.support, reads };
   }
   // 2. sonst: häufigste Länge, dann Mehrheit je Stelle
   const byLen = {};
@@ -371,7 +371,7 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
   let k = 0;
   const text = ref.text.replace(/\d/g, () => d[k++]);
   const conf = ref.conf * (group.length / reads.length);
-  return { text, conf, lines: [{ text, conf, words: [] }], score: Math.min(d.length, box.chars + 2) * conf };
+  return { text, conf, lines: [{ text, conf, words: [] }], score: Math.min(d.length, box.chars + 2) * conf, reads };
 }
 
 // Klartext-Nummer direkt unter dem Barcode (ALDI, Lidl, EDEKA, dm drucken sie dort)
@@ -380,7 +380,10 @@ async function readNumberBand(canvas, loc, flip) {
   const k = Math.max(1, Math.min(6, 160 / bh));
   const crop = cropAligned(canvas, loc, { dv: loc.T / 2 + bh / 2, bw: loc.L * 1.3, bh, k, flip });
   const r = await readDigitRow(crop, 8, NUMBER_TEMPLATES);
-  return r ? { lines: r.lines, score: r.score } : { lines: [], score: 0 };
+  if (!r) return { lines: [], score: 0 };
+  // Einzellesungen als Alternativen mitgeben (z. B. für die Prüfziffer bei EDEKA)
+  const alts = r.reads.filter((x) => x.text !== r.text).map((x) => ({ text: x.text, conf: 0, alt: true, words: [] }));
+  return { lines: [...r.lines, ...alts], score: r.score };
 }
 
 // Wo der PIN relativ zum Barcode sitzt (L = Barcode-Länge, T = Barcode-Höhe, Text aufrecht)
@@ -646,7 +649,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
   const pre = document.createElement('pre');
   pre.textContent =
     (barcodes.length ? barcodes.map((x) => `[${x.format}] ${x.text}`).join('\n') + '\n\n' : `[kein Barcode lesbar${located ? ', Bereich gefunden' : ''}]\n\n`) +
-    (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.map((l) => l.text).join(' ') + '\n\n' : '') +
+    (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.filter((l) => !l.alt).map((l) => l.text).join(' ') + '\n\n' : '') +
     lines.map((l) => l.text).join('\n');
   dbg.append(pre);
   if (fromPhone || !guest) r.append(dbg);

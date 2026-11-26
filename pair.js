@@ -256,7 +256,7 @@ function pack(r) {
     fields: r.res.fields.map(({ key, label, value, check, unsure }) => ({ key, label, value, check, unsure })),
     barcodes: r.barcodes.map((b) => ({ format: b.format, text: b.text })),
     lines: r.lines.slice(0, 40).map((l) => ({ text: l.text.slice(0, 120) })),
-    numberLines: (r.numberLines || []).map((l) => ({ text: l.text })),
+    numberLines: (r.numberLines || []).filter((l) => !l.alt).map((l) => ({ text: l.text })),
     located: !!r.located,
   };
 }

@@ -42,8 +42,8 @@ export const BRANDS = {
     url: 'https://evci.pin-host.com/evci/#/guthabenabfrage',
     where: {
       pin: '4-stellig auf dem Silberstreifen oben links.',
-      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“.',
-      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“.',
+      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“ (vor „21“).',
+      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“ (bis zum Ende).',
     },
   },
 };
@@ -59,6 +59,15 @@ const toDigits = (s) =>
     .replace(/[B]/g, '8')
     .replace(/[zZ]/g, '2')
     .replace(/\D/g, '');
+
+// GS1-Prüfziffer (GTIN, Modulo 10, Gewichte 3/1 von rechts)
+export function gs1Valid(code) {
+  if (!/^\d{8,18}$/.test(code)) return false;
+  const d = code.split('').map(Number);
+  const check = d.pop();
+  const sum = d.reverse().reduce((s, x, i) => s + x * (i % 2 ? 1 : 3), 0);
+  return (10 - (sum % 10)) % 10 === check;
+}
 
 const group = (s, n = 4) => s.replace(new RegExp(`(.{${n}})(?=.)`, 'g'), '$1 ');
 
@@ -176,10 +185,18 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       break;
     }
     case 'edeka': {
-      const { m: g, ocr } = pick(/^0104041578(\d{6})21(\d{14})$/, /4041578(\d{6})21(\d{14})/);
-      f('part1', 'Kartennummer – kurzes Feld (nach 010 4041578)', g ? g[1] : '', true, ocr);
-      f('part2', 'Kartennummer – langes Feld (nach 21)', g ? g[2] : '', true, ocr);
+      // Reihenfolge wie auf der Prüfseite: PIN-Code, dann Kartennummer Feld 1 und Feld 2.
+      // Feld 1 = letzte 6 Ziffern der GTIN (04041578……) und endet mit einer GS1-Prüfziffer:
+      // damit lassen sich Lesefehler erkennen und unter mehreren Lesungen die richtige wählen.
+      const cands = bc
+        .map((b) => ({ b, m: b.d.match(b.ocr ? /4041578(\d{6})21(\d{14})/ : /^0104041578(\d{6})21(\d{14})$/) }))
+        .filter((x) => x.m);
+      const exact = cands.find((x) => !x.b.ocr);
+      const main = exact || cands[0];
+      const valid = exact || cands.find((x) => gs1Valid('04041578' + x.m[1]));
       f('pin', 'PIN-Code', pin, true);
+      f('part1', 'Kartennummer – Feld 1 (6 Ziffern nach „010 4041578“)', (valid || main)?.m[1], true, !valid);
+      f('part2', 'Kartennummer – Feld 2 (14 Ziffern nach „21“)', main?.m[2], true, !exact && !(main?.b.conf >= 92));
       break;
     }
     case 'aldi':
