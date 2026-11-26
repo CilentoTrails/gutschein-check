@@ -294,6 +294,7 @@ function status(msg) {
 function show(r) {
   render(r);
   if (guest) {
+    delete els.pairNote.dataset.sent;
     pairNote('Wird an die Website gesendet …');
     let waited = false;
     const onWait = () => {
@@ -302,7 +303,7 @@ function show(r) {
     };
     guest.result(r, onWait).then((ok) =>
       ok
-        ? pairNote('An die Website gesendet', false, true)
+        ? (pairNote('An die Website gesendet', false, true), (els.pairNote.dataset.sent = '1'))
         : pairNote('Nicht an der Website angekommen. Ist sie am Rechner noch offen? Sonst QR-Code neu scannen.', true)
     );
   }
@@ -912,7 +913,9 @@ else {
   pairNote('Verbinde mit der Website …');
   guest = startGuest(pairCode, {
     onState: (state, info) => {
-      if (state === 'connected') pairNote('Mit der Website verbunden', false, true);
+      // „gesendet“ stehen lassen, solange die Verbindung hält; bei echten Problemen überschreiben
+      if (state !== 'connected') delete els.pairNote.dataset.sent;
+      if (state === 'connected') { if (!els.pairNote.dataset.sent) pairNote('Mit der Website verbunden', false, true); }
       else if (state === 'reconnecting') pairNote('Verbindung zur Website unterbrochen – verbinde neu …', true);
       else if (state === 'waiting-host') pairNote('Website am Rechner gerade nicht erreichbar – versuche weiter …', true);
       else if (state === 'error') pairNote(info, true);

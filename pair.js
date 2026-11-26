@@ -21,8 +21,10 @@ const STORE = 'gc-pair-code';
 
 const ERRORS = {
   'peer-unavailable': 'Rechner nicht erreichbar. Ist die Seite dort noch offen? QR-Code neu scannen.',
-  network: 'Keine Verbindung zum Vermittlungsserver. Internetverbindung prüfen.',
-  'server-error': 'Vermittlungsserver nicht erreichbar. Später noch einmal versuchen.',
+  network: 'Verbindung wird wiederhergestellt … (bei Dauer: Internetverbindung prüfen)',
+  'server-error': 'Vermittlungsserver gerade nicht erreichbar – versuche es weiter …',
+  'socket-error': 'Verbindung wird wiederhergestellt …',
+  'socket-closed': 'Verbindung wird wiederhergestellt …',
   'browser-incompatible': 'Dieser Browser kann keine Direktverbindung (WebRTC).',
 };
 const errText = (e) => ERRORS[e?.type] || 'Verbindung fehlgeschlagen (' + (e?.type || e) + ').';
@@ -77,7 +79,8 @@ export function startHost({ onState, onStatus, onResult }) {
     peer.on('error', (e) => {
       // ID noch belegt (alte Anmeldung) oder Dienst weg: gleich noch einmal anmelden
       if (peer.destroyed) setTimeout(() => { if (peer.destroyed) makePeer(); }, 3000);
-      if (!announced || !conns.size) onState('error', errText(e));
+      if (conns.size) return; // Handy direkt verbunden: Vermittlungsserver egal
+      onState('error', errText(e));
     });
   }
 
@@ -150,14 +153,21 @@ export function startGuest(code, { onState }) {
   function makePeer() {
     peer?.destroy();
     peer = new Peer(OPTS);
-    peer.on('open', () => { sig.opened(); connect(); });
+    peer.on('open', () => {
+      sig.opened();
+      if (conn?.open) onState('connected');
+      else connect();
+    });
     peer.on('disconnected', sig.lost);
     peer.on('error', (e) => {
       connecting = false;
+      if (peer.destroyed) setTimeout(() => { if (peer.destroyed) makePeer(); }, 3000);
+      // Steht die Direktverbindung zum Rechner, ist ein Ausfall des Vermittlungsservers egal
+      // (er wird nur zum Verbinden gebraucht und im Hintergrund neu verbunden): nichts anzeigen.
+      if (conn?.open) return;
       // Rechner gerade nicht angemeldet (z. B. Tab im Hintergrund): einfach weiter versuchen
       if (e.type === 'peer-unavailable') onState('waiting-host');
       else onState('error', errText(e));
-      if (peer.destroyed) setTimeout(() => { if (peer.destroyed) makePeer(); }, 3000);
     });
   }
 
