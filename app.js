@@ -1,4 +1,5 @@
 import { BRANDS, analyze } from './brands.js';
+import { CARDS } from './cards.js';
 import { startHost, startGuest, pairCodeFromUrl } from './pair.js';
 import { locateBarcode, cropAligned, enhance, sharpness, findTextRow, findTextRows, cutBox } from './vision.js';
 
@@ -616,6 +617,73 @@ export async function processImage(source) {
   return r.res;
 }
 
+// „Wo finde ich die Nummern?“: Link oben rechts im Ergebnis. Am PC beim Darüberfahren, am Handy per Tippen.
+// Die erkannte Marke groß mit Erklärung, die anderen klein darunter (Grafiken in cards.js).
+function howTo(brand) {
+  const wrap = document.createElement('div');
+  wrap.className = 'howto';
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'howto-link';
+  link.textContent = 'Wo finde ich die Nummern?';
+  link.setAttribute('aria-expanded', 'false');
+  const pop = document.createElement('div');
+  pop.className = 'howto-pop';
+  pop.hidden = true;
+  const legend = (c) => {
+    const ol = document.createElement('ol');
+    for (const [n, t, d] of c.legend) {
+      const li = document.createElement('li');
+      li.append(Object.assign(document.createElement('span'), { className: 'n', textContent: n }));
+      const txt = document.createElement('span');
+      txt.append(Object.assign(document.createElement('b'), { textContent: t + ':' }), ' ' + d);
+      li.append(txt);
+      ol.append(li);
+    }
+    return ol;
+  };
+  const cardEl = (k, withLegend) => {
+    const c = CARDS[k];
+    const el = document.createElement('div');
+    el.className = 'howto-card';
+    el.append(Object.assign(document.createElement('h4'), { textContent: c.name }));
+    el.insertAdjacentHTML('beforeend', c.svg); // eigene, feste Grafik (keine fremden Daten)
+    if (withLegend) el.append(legend(c));
+    return el;
+  };
+  const main = CARDS[brand] ? brand : null;
+  pop.append(Object.assign(document.createElement('h3'), { textContent: 'Wo finde ich die Nummern?' }));
+  if (main) {
+    const big = document.createElement('div');
+    big.className = 'howto-big';
+    big.append(cardEl(main, false), legend(CARDS[main]));
+    pop.append(big);
+  }
+  const small = document.createElement('div');
+  small.className = main ? 'howto-small' : 'howto-grid';
+  for (const k of ['edeka', 'aldi', 'lidl', 'dm']) if (k !== main) small.append(cardEl(k, !main));
+  pop.append(small);
+  let pinned = false;
+  const show = (on) => {
+    pop.hidden = !on;
+    link.setAttribute('aria-expanded', String(on));
+  };
+  const hover = matchMedia('(hover: hover)').matches;
+  if (hover) {
+    wrap.addEventListener('mouseenter', () => show(true));
+    wrap.addEventListener('mouseleave', () => { if (!pinned) show(false); });
+  }
+  link.onclick = (e) => {
+    e.stopPropagation();
+    pinned = !pinned || pop.hidden;
+    show(pinned);
+  };
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) { pinned = false; show(false); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { pinned = false; show(false); } });
+  wrap.append(link, pop);
+  return wrap;
+}
+
 // lange Ziffernfolgen in Vierergruppen anzeigen (Kopieren nimmt die Leerzeichen wieder raus)
 const groupDigits = (v) => (/^\d{9,}$/.test(v) ? v.replace(/(\d{4})(?=\d)/g, '$1 ') : v);
 function fitHeight(t) {
@@ -631,9 +699,8 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
 
   const head = document.createElement('div');
   head.className = 'brand';
-  head.style.setProperty('--brand', b ? b.color : '#666');
   head.textContent = b ? b.name : 'Marke nicht erkannt';
-  r.append(head);
+  r.append(head, howTo(res.brand));
 
   for (const f of res.fields) {
     const row = document.createElement('label');
@@ -669,14 +736,6 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     };
     wrap.append(inp, copy);
     row.append(wrap);
-    // wo steht das Feld auf der Karte? (hilft beim Vergleichen/Nachtragen)
-    const where = b?.where?.[f.key];
-    if (where && (!f.value || f.unsure)) {
-      const h = document.createElement('small');
-      h.className = 'where';
-      h.textContent = where;
-      row.append(h);
-    }
     r.append(row);
   }
 
