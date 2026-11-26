@@ -63,12 +63,16 @@ export const CARDS = {
       holo(14, 14, 110, 26, '4721') + lines(136, 16, 190, 2, 9) + lines(14, 52, 310, 3, 9) +
       `<text x="214" y="96" font-size="9" fill="#555">Ktrl. Nr. 900 123 45 678</text>` +
       bars(28, 102, 290, 34) +
-      `<text x="28" y="152" font-size="10.5" font-family="monospace" fill="#222">010 4041578 <tspan font-weight="700">9 000 12</tspan> 21 <tspan font-weight="700">0860 1122 3344 55</tspan></text>` +
+      // Zahlenreihe wie auf der EDEKA-Prüfseite: 010 4041578 [Feld 1] 21 [Feld 2]
+      `<text x="16" y="153" font-size="11" fill="#222">010 4041578</text>` +
+      `<rect x="88" y="140" width="56" height="18" rx="3" fill="#fff8b0" stroke="#444"/><text x="116" y="153" text-anchor="middle" font-size="11" font-family="monospace" font-weight="700" fill="#222">900012</text>` +
+      `<text x="150" y="153" font-size="11" fill="#222">21</text>` +
+      `<rect x="166" y="140" width="158" height="18" rx="3" fill="#fff8b0" stroke="#444"/><text x="245" y="153" text-anchor="middle" font-size="11" font-family="monospace" font-weight="700" fill="#222">08601122334455</text>` +
       `<rect x="14" y="170" width="40" height="32" fill="#ffd500"/><rect x="20" y="176" width="28" height="20" fill="#1e4fa0"/>` +
       `<rect x="62" y="172" width="36" height="28" fill="#2e8b3d"/><rect x="106" y="172" width="44" height="28" fill="#1e4fa0" opacity=".7"/><rect x="158" y="172" width="34" height="28" fill="#222"/>` +
       `<rect x="200" y="172" width="58" height="28" fill="#c8102e" opacity=".7"/><rect x="266" y="172" width="54" height="28" fill="#1e4fa0" opacity=".5"/>` +
-      mark(10, 10, 118, 34, 1, 140, 34) + mark(100, 141, 55, 15, 2, 127, 165) + mark(178, 141, 118, 15, 3, 306, 165)
+      mark(10, 10, 118, 34, 1, 140, 34) + mark(85, 137, 62, 24, 2, 116, 168) + mark(163, 137, 164, 24, 3, 245, 168)
     ),
-    legend: [['1', 'PIN-Code', '4 Ziffern im Silberstreifen oben links (freirubbeln)'], ['2', 'Feld 1', '6 Ziffern nach „010 4041578“'], ['3', 'Feld 2', '14 Ziffern nach „21“']],
+    legend: [['1', 'PIN-Code', '4 Ziffern im Silberstreifen oben links (freirubbeln)'], ['2', 'Feld 1', '6 Ziffern nach „…78“'], ['3', 'Feld 2', '14 Ziffern nach „21“']],
   },
 };

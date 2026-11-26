@@ -12,30 +12,21 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gutschein-Check">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
   <main>
     <header>
       <h1>Gutschein-Check</h1>
-      <ul class="hints">
-        <li>Funktioniert für dm-, EDEKA-, ALDI- und Lidl-Gutscheine.</li>
-        <li>Es werden keine Kartendaten oder Fotos gespeichert.</li>
-        <li>Rubbel das PIN-Feld auf der Karte gut frei.</li>
-        <li>Für eine stabile Verbindung am besten Handy und Laptop im gleichen WLAN einloggen.</li>
-      </ul>
     </header>
 
-    <!-- Rechner: QR-Code zum Koppeln -->
-    <section id="pair" class="desk-only">
-      <div id="pair-qr" hidden></div>
-      <p id="pair-thanks" hidden>Danke, dass du hilfst!</p>
-      <p id="pair-state">Verbindung wird vorbereitet …</p>
-      <button id="btn-pair-new" type="button" class="secondary">Neuen QR-Code erzeugen</button>
-    </section>
+    <!-- Handy: Status der Verbindung -->
+    <p id="pair-note" class="phone-only" role="status" hidden></p>
+
+    <!-- Ergebnis: das Wichtigste, deshalb ganz oben -->
+    <section id="result" hidden></section>
 
     <!-- Handy: Karte scannen -->
-    <p id="pair-note" class="phone-only" role="status" hidden></p>
     <div id="phone-start" class="actions phone-only">
       <button id="btn-camera" type="button">Karte scannen</button>
     </div>
@@ -53,13 +44,27 @@
 
     <p id="status" role="status" hidden></p>
 
-    <section id="result" hidden></section>
+    <!-- Rechner: Verbindung / QR-Code -->
+    <section id="pair" class="desk-only">
+      <div id="pair-qr" hidden></div>
+      <p id="pair-thanks" hidden>Danke, dass du hilfst!</p>
+      <p id="pair-state">Verbindung wird vorbereitet …</p>
+      <button id="btn-pair-new" type="button" class="secondary">Neuen QR-Code erzeugen</button>
+    </section>
+
+    <!-- Regeln und Hinweise -->
+    <ul class="hints">
+      <li>Funktioniert für dm-, EDEKA-, ALDI- und Lidl-Gutscheine.</li>
+      <li>Es werden keine Kartendaten oder Fotos gespeichert.</li>
+      <li>Rubbel das PIN-Feld auf der Karte gut frei.</li>
+      <li>Für eine stabile Verbindung am besten Handy und Laptop im gleichen WLAN einloggen.</li>
+    </ul>
   </main>
 
   <script src="vendor/zxing/zxing-reader.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="vendor/peerjs/peerjs.min.js"></script>
   <script src="vendor/qrcode/qrcode.js"></script>
-  <script type="module" src="app.js?v=22"></script>
+  <script type="module" src="app.js?v=24"></script>
 </body>
 </html>

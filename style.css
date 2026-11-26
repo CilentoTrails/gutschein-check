@@ -27,10 +27,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Jost-ähnlich (geometrisch, nach Futura), nur vorinstallierte Schriften: nichts zu laden, keine Lizenzfragen.
+     Apple: Futura/Avenir Next, Windows: Century Gothic, sonst Systemschrift. */
+  font: 16px/1.45 "Jost", "Futura", "Futura PT", "Avenir Next", "Century Gothic", "Avenir", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
-h1 { margin: 0 0 4px; font-size: 1.6rem; color: var(--accent); text-align: center; }
+h1 { margin: 0 0 14px; font-size: 2.4rem; line-height: 1.15; color: var(--accent); text-align: center; letter-spacing: .01em; }
 header p, footer, .hint { color: var(--muted); }
 footer { font-size: .85rem; margin-top: 32px; }
 
@@ -71,7 +73,7 @@ video { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 #result {
   position: relative;
-  margin-top: 16px; padding: 16px;
+  margin: 0 0 16px; padding: 16px;
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
   display: grid; gap: 12px;
 }
@@ -125,7 +127,7 @@ pre { white-space: pre-wrap; word-break: break-word; }
 .mode-desk .phone-only, .mode-desk #stage { display: none !important; }
 .mode-phone .desk-only { display: none !important; }
 .mode-phone main { padding-top: 12px; }
-.mode-phone h1 { font-size: 1.2rem; margin-bottom: 8px; }
+.mode-phone h1 { font-size: 1.6rem; margin-bottom: 8px; }
 .mode-phone #pair-note { margin-bottom: 10px; }
 .mode-phone .actions { margin: 10px 0; }
 .mode-phone footer { margin-top: 16px; }
@@ -140,9 +142,9 @@ pre { white-space: pre-wrap; word-break: break-word; }
 #stage .actions.bar #btn-snap, #result .actions.bar button:first-child { flex: 2; }
 
 /* Hinweise oben */
-.hints { margin: 10px 0 18px; padding-left: 1.2em; color: var(--muted); }
+.hints { margin: 20px 0 0; padding-left: 1.2em; color: var(--muted); }
 .hints li { margin: 2px 0; }
-.mode-phone .hints { font-size: .85rem; margin-top: 0; margin-bottom: 8px; }
+.mode-phone .hints { font-size: .85rem; margin-top: 16px; }
 
 /* verbunden: nur „Handy verbunden“ mit pinkem Haken */
 #pair.connected #btn-pair-new { display: none; }
