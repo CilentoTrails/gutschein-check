@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gutschein-Check">
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
   <main>
@@ -59,12 +59,23 @@
       <li>Rubbel das PIN-Feld auf der Karte gut frei.</li>
       <li>Für eine stabile Verbindung am besten Handy und Laptop im gleichen WLAN einloggen.</li>
     </ul>
+
+    <!-- kleiner Link unten rechts: WhatsApp-Gruppe für Geflüchtete -->
+    <p class="wa-row"><button id="btn-wa" type="button" class="wa-link">WhatsApp-Gruppe für Geflüchtete</button></p>
+    <dialog id="wa-dialog" aria-labelledby="wa-title">
+      <h2 id="wa-title">Karten-Tausch von OFFEN</h2>
+      <p class="wa-sub">WhatsApp-Gruppe</p>
+      <a id="wa-qr" target="_blank" rel="noopener noreferrer" aria-label="Gruppe in WhatsApp öffnen"></a>
+      <p>Hier tauschen sich Geflüchtete aus, erfahren das Neueste zum Kartentausch und bleiben mit uns in Kontakt.</p>
+      <p><b>Noch nicht dabei?</b> Mit WhatsApp und Internet einfach den QR-Code scannen – oder am Handy antippen.</p>
+      <form method="dialog"><button type="submit" class="secondary">Schließen</button></form>
+    </dialog>
   </main>
 
   <script src="vendor/zxing/zxing-reader.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="vendor/peerjs/peerjs.min.js"></script>
   <script src="vendor/qrcode/qrcode.js"></script>
-  <script type="module" src="app.js?v=24"></script>
+  <script type="module" src="app.js?v=25"></script>
 </body>
 </html>

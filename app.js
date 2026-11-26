@@ -1005,4 +1005,21 @@ if (pairCode && 'wakeLock' in navigator) {
   acquire();
 }
 
+// WhatsApp-Gruppe für Geflüchtete: kleiner Link unten, öffnet QR-Code (am Handy auch antippbar)
+const WA_GROUP = 'https://chat.whatsapp.com/JSQTECUCIcL7fEoCAGyOJw';
+const waDialog = $('#wa-dialog');
+$('#btn-wa').onclick = () => {
+  const box = $('#wa-qr');
+  if (!box.firstChild) {
+    const qr = qrcode(0, 'M');
+    qr.addData(WA_GROUP);
+    qr.make();
+    box.href = WA_GROUP;
+    box.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  }
+  if (waDialog.showModal) waDialog.showModal();
+  else waDialog.setAttribute('open', '');
+};
+waDialog.addEventListener('click', (e) => { if (e.target === waDialog) waDialog.close(); }); // Klick neben das Fenster schließt
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
