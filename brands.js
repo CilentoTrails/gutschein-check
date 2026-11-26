@@ -17,7 +17,7 @@ export const BRANDS = {
   lidl: {
     name: 'Lidl',
     color: '#0050aa',
-    url: 'https://www.lidl.de/c/lidl-geschenkkarten',
+    url: 'https://www.lidl.de/c/lidl-geschenkkarten/s10007775',
   },
   rewe: {
     name: 'REWE',
@@ -134,9 +134,11 @@ function findPin(lines, digitLines, barcodeDigits) {
 export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) {
   const text = lines.map((l) => l.text).join('\n');
   // dazu Zeilen aus dem normalen Text, die fast nur aus Ziffern bestehen (Klartext-Nummer)
-  const numLike = lines.filter((l) => /^[\dOoIl| ]{16,}$/.test(l.text.trim()) && digits(l.text).length >= 12);
+  // Seriennummern (ALDI/Lidl: „Seriennr.“, in 6er-Gruppen gedruckt) sind nie die Gutscheinnummer
+  const isSerial = (t) => /seri[ec]n/i.test(t) || /(?:^|\D)\d{6}\s+\d{6}\s+\d{6}(?:\D|$)/.test(t);
+  const numLike = lines.filter((l) => /^[\dOoIl| ]{16,}$/.test(l.text.trim()) && digits(l.text).length >= 12 && !isSerial(l.text));
   const seen = new Set();
-  const pseudo = [...numberLines, ...numLike]
+  const pseudo = [...numberLines.filter((l) => !isSerial(l.text)), ...numLike]
     .map((l) => ({ text: toDigits(l.text), format: 'OCR', ocr: true, conf: numberLines.includes(l) ? l.conf : 0 }))
     .filter((b) => b.text.length >= 10 && !seen.has(b.text) && seen.add(b.text));
   const scores = scoreBrands(text, barcodes, pseudo);
@@ -195,7 +197,8 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
     case 'lidl': {
       // GS1-Barcode: (01) GTIN + (90) Gutscheinnummer = die Zahl unter dem Barcode.
       // ALDI und ältere Lidl-Karten: 20-stellig, neuere Lidl-Karten (10 €/20 €): 18-stellig.
-      const { m: g, ocr } = pick(/^01\d{14}90(\d{16,22})$|^(\d{18}|\d{20})$/);
+      // 18-stellige Lidl-Nummern beginnen immer mit 01 (Seriennummern mit 1000…/2000…)
+      const { m: g, ocr } = pick(/^01\d{14}90(\d{16,22})$|^(01\d{16}|\d{20})$/);
       const num = g ? g[1] || g[2] : '';
       f('card', 'Gutscheinnummer', num, true, ocr);
       f('pin', 'PIN', pin, true);
