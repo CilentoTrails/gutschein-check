@@ -387,6 +387,8 @@ async function readNumberBand(canvas, loc, flip) {
 const PIN_LAYOUT = {
   // ALDI (Helaba): Hologramm-Feld rechts oberhalb des Barcodes, auf Höhe der Seriennummer
   aldi: (L, T) => ({ du: L * 0.47, dv: -T / 2 - L * 0.06, bw: L * 0.4, bh: L * 0.2 }),
+  // Lidl: Hologramm-Feld über dem rechten Drittel des Barcodes, neben „Seriennr.“
+  lidl: (L, T) => ({ du: L * 0.32, dv: -T / 2 - L * 0.09, bw: L * 0.4, bh: L * 0.18 }),
   // EDEKA (A1 Bank): Silberstreifen oben links über dem Text
   edeka: (L) => ({ du: -L * 0.33, dv: -L * 0.42, bw: L * 0.65, bh: L * 0.26 }),
 };

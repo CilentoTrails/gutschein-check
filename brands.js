@@ -27,7 +27,8 @@ export const BRANDS = {
     color: '#0050aa',
     url: 'https://www.lidl.de/c/lidl-geschenkkarten/s10007775',
     where: {
-      card: 'Zahl direkt unter dem Barcode (20-stellig).',
+      card: 'Zahl direkt unter dem Barcode (20-stellig, ohne die kurze Zahl ganz rechts).',
+      pin: '4-stellig im silbernen Hologramm-Feld rechts oberhalb des Barcodes.',
     },
   },
   rewe: {
