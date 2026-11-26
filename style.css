@@ -80,22 +80,24 @@ video { display: block; width: 100%; height: 100%; object-fit: cover; }
 }
 #result > * { min-width: 0; }
 .field { display: grid; gap: 4px; font-size: .9rem; color: var(--muted); }
+.field em, .field strong.warn-badge { white-space: nowrap; }
 .field em {
   font-style: normal; font-size: .75rem; margin-left: 6px;
   padding: 1px 6px; border-radius: 6px; background: var(--line); color: var(--fg);
 }
 .field > div { display: flex; gap: 8px; min-width: 0; }
-.field input {
-  flex: 1; width: 0; min-width: 0; min-height: 44px; padding: 0 12px;
+.field textarea {
+  flex: 1; width: 0; min-width: 0; min-height: 44px; padding: 10px 12px;
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--bg); color: var(--fg);
-  font: 600 1.05rem/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font: 600 1.05rem/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   letter-spacing: .04em;
+  resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.field button { flex: 0 0 auto; min-height: 44px; font-size: .85rem; }
-.field.missing input { border-color: var(--warn); }
+.field button { flex: 0 0 auto; min-height: 44px; font-size: .85rem; align-self: flex-start; }
+.field.missing textarea { border-color: var(--warn); }
 /* Warnhinweis „bitte mit Karte vergleichen“: pinke Schrift auf Sonnengelb */
-.field.unsure input { border: 2px solid #ffc800; background: #fff8d6; color: #1a1d1a; }
+.field.unsure textarea { border: 2px solid #ffc800; background: #fff8d6; color: #1a1d1a; }
 .field .where { font-size: .78rem; color: var(--muted); }
 .field strong.warn-badge {
   display: inline-flex; align-items: center; gap: 4px;
@@ -139,3 +141,16 @@ pre { white-space: pre-wrap; word-break: break-word; }
 }
 #result .actions.bar { background: var(--card); }
 #stage .actions.bar #btn-snap, #result .actions.bar button:first-child { flex: 2; }
+
+/* Hinweise oben */
+.hints { margin: 10px 0 18px; padding-left: 1.2em; color: var(--muted); }
+.hints li { margin: 2px 0; }
+.mode-phone .hints { font-size: .85rem; margin-top: 0; margin-bottom: 8px; }
+
+/* verbunden: nur „Handy verbunden“ mit pinkem Haken */
+#pair.connected #btn-pair-new { display: none; }
+#pair.connected #pair-state { font-size: 1.15rem; font-weight: 600; }
+#pair-state .check {
+  display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; margin-left: 4px;
+  border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700;
+}
