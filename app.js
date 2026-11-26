@@ -431,6 +431,8 @@ async function readNumberBand(canvas, loc, flip) {
   const crop = cropAligned(canvas, loc, { dv: loc.T / 2 + bh / 2, bw: loc.L * 1.7, bh, k, flip });
   const r = await readDigitRow(crop, 8, NUMBER_TEMPLATES);
   if (!r) return { lines: [], score: 0 };
+  // Seriennummer (6er-Gruppen, steht bei Lidl/ALDI über dem Barcode) = falsche Seite gelesen
+  if (/(?:^|\D)\d{6}\s+\d{6}\s+\d{6}(?:\D|$)/.test(r.text)) return { lines: [], score: 0 };
   // Einzellesungen als Alternativen mitgeben (z. B. für die Prüfziffer bei EDEKA)
   const alts = r.reads.filter((x) => x.text !== r.text).map((x) => ({ text: x.text, conf: 0, alt: true, words: [] }));
   return { lines: [...r.lines, ...alts], score: r.score };
