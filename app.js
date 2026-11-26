@@ -19,6 +19,7 @@ const els = {
   pairState: $('#pair-state'),
   pairNew: $('#btn-pair-new'),
   pairNote: $('#pair-note'),
+  pairThanks: $('#pair-thanks'),
 };
 
 /* ---------- Barcode (zxing-wasm + BarcodeDetector) ---------- */
@@ -258,17 +259,16 @@ function status(msg) {
 function show(r) {
   render(r);
   if (guest) {
-    pairNote('Wird an den Rechner gesendet …');
+    pairNote('Wird an die Website gesendet …');
     let waited = false;
     const onWait = () => {
-      if (!waited) pairNote('Wartet auf die Verbindung zum Rechner … (wird automatisch gesendet)', true);
+      if (!waited) pairNote('Wartet auf die Verbindung zur Website … (wird automatisch gesendet)', true);
       waited = true;
     };
     guest.result(r, onWait).then((ok) =>
-      pairNote(
-        ok ? 'Am Rechner angekommen ✓ – dort kopieren.' : 'Nicht am Rechner angekommen. Ist die Seite dort noch offen? Sonst QR-Code neu scannen. Die Werte stehen auch hier unten.',
-        !ok
-      )
+      ok
+        ? pairNote('An die Website gesendet', false, true)
+        : pairNote('Nicht an der Website angekommen. Ist sie am Rechner noch offen? Sonst QR-Code neu scannen.', true)
     );
   }
 }
@@ -799,8 +799,10 @@ els.stop.onclick = () => { stopCamera(); status(''); };
 let guest = null; // gesetzt, wenn diese Seite das Handy ist
 let host = null; // gesetzt, wenn diese Seite der Rechner ist
 
-function pairNote(text, warn = false) {
-  els.pairNote.textContent = text;
+const checkMark = () => Object.assign(document.createElement('span'), { className: 'check', textContent: '✓' });
+
+function pairNote(text, warn = false, check = false) {
+  els.pairNote.replaceChildren(text, ...(check ? [' ', checkMark()] : []));
   els.pairNote.classList.toggle('warn', warn);
   els.pairNote.hidden = !text;
 }
@@ -814,21 +816,23 @@ function startPairing() {
   host = startHost({
     onState: (state, info) => {
       els.pair.classList.toggle('connected', state === 'connected');
+      els.pairThanks.hidden = state === 'connected' || els.pairQr.hidden;
       if (state === 'waiting') {
         const qr = qrcode(0, 'M');
         qr.addData(info);
         qr.make();
         els.pairQr.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true });
         els.pairQr.hidden = false;
+        els.pairThanks.hidden = false;
         els.pairState.textContent = 'QR-Code mit der Handykamera scannen und den Link öffnen.';
       } else if (state === 'connected') {
         els.pairQr.hidden = true;
-        const ok = Object.assign(document.createElement('span'), { className: 'check', textContent: '✓' });
-        els.pairState.replaceChildren('Handy verbunden ', ok);
+        els.pairState.replaceChildren('Handy verbunden ', checkMark());
       } else if (state === 'idle') {
         els.pairState.textContent = 'Handy gerade nicht erreichbar (Bildschirm gesperrt?). Es verbindet sich automatisch wieder, sobald die Seite am Handy offen ist.';
       } else if (state === 'disconnected') {
         els.pairQr.hidden = false;
+        els.pairThanks.hidden = false;
         els.pairState.textContent = 'Handy getrennt. Es verbindet sich automatisch wieder, solange die Seite am Handy offen ist. Sonst den QR-Code noch einmal scannen.';
       } else if (state === 'error') {
         els.pairState.textContent = info;
@@ -852,12 +856,12 @@ document.body.classList.add(pairCode ? 'mode-phone' : 'mode-desk');
 els.pairNew.onclick = startPairing;
 if (!pairCode) startPairing();
 else {
-  pairNote('Verbinde mit dem Rechner …');
+  pairNote('Verbinde mit der Website …');
   guest = startGuest(pairCode, {
     onState: (state, info) => {
-      if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓');
-      else if (state === 'reconnecting') pairNote('Verbindung zum Rechner unterbrochen – verbinde neu …', true);
-      else if (state === 'waiting-host') pairNote('Rechner gerade nicht erreichbar – versuche weiter … (Ist die Seite dort noch offen?)', true);
+      if (state === 'connected') pairNote('Mit der Website verbunden', false, true);
+      else if (state === 'reconnecting') pairNote('Verbindung zur Website unterbrochen – verbinde neu …', true);
+      else if (state === 'waiting-host') pairNote('Website am Rechner gerade nicht erreichbar – versuche weiter …', true);
       else if (state === 'error') pairNote(info, true);
     },
   });
