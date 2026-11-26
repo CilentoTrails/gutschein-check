@@ -294,6 +294,7 @@ function status(msg) {
 function show(r) {
   render(r);
   if (guest) {
+    delete els.pairNote.dataset.sent;
     pairNote('Wird an die Website gesendet …');
     let waited = false;
     const onWait = () => {
@@ -302,7 +303,7 @@ function show(r) {
     };
     guest.result(r, onWait).then((ok) =>
       ok
-        ? pairNote('An die Website gesendet', false, true)
+        ? (pairNote('An die Website gesendet', false, true), (els.pairNote.dataset.sent = '1'))
         : pairNote('Nicht an der Website angekommen. Ist sie am Rechner noch offen? Sonst QR-Code neu scannen.', true)
     );
   }
@@ -366,9 +367,13 @@ function voteTemplate(reads, tpl) {
     if (!cands.length) return null;
     support += cands.length;
     const v = voteDigits(cands);
-    // Sicherheit dieser Gruppe: Anteil übereinstimmender Lesungen und deren Tesseract-Sicherheit
+    // Sicherheit dieser Gruppe: nur wenn mindestens 4 passende Lesungen alle dasselbe ergeben
+    // (Lesungen ohne passende Ziffernzahl zählen nicht; jeder Widerspruch, z. B. 3501/8501, macht unsicher)
     const agree = cands.filter((c) => c.d === v);
-    confSum += Math.min((agree.length / reads.length) * 100, agree.reduce((a, c) => a + c.conf, 0) / agree.length + 15);
+    const avg = agree.reduce((a, c) => a + c.conf, 0) / agree.length;
+    // Tesseracts eigener Wert ist bei Ziffern-Whitelist oft 0 und taugt nicht; maßgeblich ist die Übereinstimmung
+    const allAgree = agree.length === cands.length;
+    confSum += allAgree && cands.length >= 4 ? 95 : allAgree && cands.length >= 3 ? Math.min(95, avg + 15) : Math.min(75, (agree.length / cands.length) * 100);
     out.push(v);
   }
   return { text: out.join(' '), support: support / tpl.length, conf: confSum / tpl.length };
@@ -385,8 +390,6 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
     const text = lines.map((l) => l.text).join(' ').trim();
     const conf = lines.reduce((s, l) => s + l.conf, 0) / (lines.length || 1);
     if (text) reads.push({ text, d: text.replace(/\D/g, ''), conf });
-    // kurze Felder (PIN): zwei übereinstimmende sichere Lesungen reichen
-    if (minChars <= 4 && reads.length >= 2 && reads.at(-1).d === reads.at(-2).d && conf > 80) break;
   }
   if (!reads.length) return null;
   // 1. bekanntes Druckbild
@@ -466,7 +469,8 @@ async function readPinIn(canvas, loc, lay) {
       // Wörter -> kein PIN, außer direkt hinter „Code:“/„PIN“ (z. B. dm: „Code: 9959“ in einer Zeile)
       const m = ptext.match(/(?:code|pin)\W{0,3}([0-9OoIl]{4})(?![0-9])/i);
       const conf = plain.reduce((a, l) => a + l.conf, 0) / (plain.length || 1);
-      if (m && conf > best.conf) best = { value: m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1'), conf };
+      // nur eine Lesung -> nie „sicher“ (höchstens 80)
+      if (m && Math.min(conf, 80) > best.conf) best = { value: m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1'), conf: Math.min(conf, 80) };
       continue;
     }
     const r = await readDigitRow(crop, 3, [[4]], box);
@@ -482,7 +486,7 @@ async function readPinIn(canvas, loc, lay) {
       });
       for (const w of lines.flatMap((l) => l.words)) {
         const d = w.text.replace(/\D/g, '');
-        if (/^\d{4}$/.test(d) && w.conf > best.conf) best = { value: d, conf: w.conf };
+        if (/^\d{4}$/.test(d) && Math.min(w.conf, 80) > best.conf) best = { value: d, conf: Math.min(w.conf, 80) }; // Rückfall nie „sicher“
       }
     }
   }
@@ -591,7 +595,7 @@ function merge(a, b) {
   const fields = a.res.fields.map((f) => {
     const g = b.res.fields.find((x) => x.key === f.key);
     // zwei Bilder lesen unabhängig voneinander dasselbe -> sicher
-    if (g && f.value && f.value === g.value && (f.unsure || g.unsure)) return { ...f, unsure: false, agreed: true };
+    if (g && f.key !== 'pin' && f.value && f.value === g.value && (f.unsure || g.unsure)) return { ...f, unsure: false, agreed: true };
     return g && rank(g) > rank(f) ? g : f;
   });
   for (const g of b.res.fields) if (!fields.some((f) => f.key === g.key)) fields.push(g);
@@ -636,7 +640,6 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     row.className = 'field' + (f.check ? ' check' : '');
     const cap = document.createElement('span');
     cap.append(f.label);
-    if (f.check) cap.append(' ', Object.assign(document.createElement('em'), { textContent: 'für Prüfseite' }));
     if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Bitte mit Karte vergleichen' }));
     row.append(cap);
     const wrap = document.createElement('div');
@@ -912,7 +915,9 @@ else {
   pairNote('Verbinde mit der Website …');
   guest = startGuest(pairCode, {
     onState: (state, info) => {
-      if (state === 'connected') pairNote('Mit der Website verbunden', false, true);
+      // „gesendet“ stehen lassen, solange die Verbindung hält; bei echten Problemen überschreiben
+      if (state !== 'connected') delete els.pairNote.dataset.sent;
+      if (state === 'connected') { if (!els.pairNote.dataset.sent) pairNote('Mit der Website verbunden', false, true); }
       else if (state === 'reconnecting') pairNote('Verbindung zur Website unterbrochen – verbinde neu …', true);
       else if (state === 'waiting-host') pairNote('Website am Rechner gerade nicht erreichbar – versuche weiter …', true);
       else if (state === 'error') pairNote(info, true);
