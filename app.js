@@ -367,11 +367,13 @@ function voteTemplate(reads, tpl) {
     if (!cands.length) return null;
     support += cands.length;
     const v = voteDigits(cands);
-    // Sicherheit dieser Gruppe: nur wenn mindestens 3 passende Lesungen alle dasselbe ergeben
+    // Sicherheit dieser Gruppe: nur wenn mindestens 4 passende Lesungen alle dasselbe ergeben
     // (Lesungen ohne passende Ziffernzahl zählen nicht; jeder Widerspruch, z. B. 3501/8501, macht unsicher)
     const agree = cands.filter((c) => c.d === v);
     const avg = agree.reduce((a, c) => a + c.conf, 0) / agree.length;
-    confSum += agree.length === cands.length && cands.length >= 3 ? Math.min(99, avg + 15) : Math.min(75, (agree.length / cands.length) * 100);
+    // Tesseracts eigener Wert ist bei Ziffern-Whitelist oft 0 und taugt nicht; maßgeblich ist die Übereinstimmung
+    const allAgree = agree.length === cands.length;
+    confSum += allAgree && cands.length >= 4 ? 95 : allAgree && cands.length >= 3 ? Math.min(95, avg + 15) : Math.min(75, (agree.length / cands.length) * 100);
     out.push(v);
   }
   return { text: out.join(' '), support: support / tpl.length, conf: confSum / tpl.length };
