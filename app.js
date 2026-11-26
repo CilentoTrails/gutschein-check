@@ -367,9 +367,11 @@ function voteTemplate(reads, tpl) {
     if (!cands.length) return null;
     support += cands.length;
     const v = voteDigits(cands);
-    // Sicherheit dieser Gruppe: Anteil übereinstimmender Lesungen und deren Tesseract-Sicherheit
+    // Sicherheit dieser Gruppe: nur wenn mindestens 3 passende Lesungen alle dasselbe ergeben
+    // (Lesungen ohne passende Ziffernzahl zählen nicht; jeder Widerspruch, z. B. 3501/8501, macht unsicher)
     const agree = cands.filter((c) => c.d === v);
-    confSum += Math.min((agree.length / reads.length) * 100, agree.reduce((a, c) => a + c.conf, 0) / agree.length + 15);
+    const avg = agree.reduce((a, c) => a + c.conf, 0) / agree.length;
+    confSum += agree.length === cands.length && cands.length >= 3 ? Math.min(99, avg + 15) : Math.min(75, (agree.length / cands.length) * 100);
     out.push(v);
   }
   return { text: out.join(' '), support: support / tpl.length, conf: confSum / tpl.length };
