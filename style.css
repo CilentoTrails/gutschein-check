@@ -149,7 +149,7 @@ pre { white-space: pre-wrap; word-break: break-word; }
 /* verbunden: nur „Handy verbunden“ mit pinkem Haken */
 #pair.connected #btn-pair-new { display: none; }
 #pair.connected #pair-state { font-size: 1.15rem; font-weight: 600; }
-#pair-thanks { font-weight: 600; color: var(--accent); }
+.hints .thanks { color: var(--accent); font-weight: 600; }
 #pair-note .check { width: 1.4em; height: 1.4em; font-size: .9rem; }
 #pair-state .check, #pair-note .check {
   display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; margin-left: 4px;

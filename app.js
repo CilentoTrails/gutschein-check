@@ -21,7 +21,6 @@ const els = {
   pairNew: $('#btn-pair-new'),
   pairNote: $('#pair-note'),
   rescan: $('#btn-rescan'),
-  pairThanks: $('#pair-thanks'),
 };
 
 /* ---------- Barcode (zxing-wasm + BarcodeDetector) ---------- */
@@ -963,15 +962,13 @@ function startPairing() {
   host = startHost({
     onState: (state, info) => {
       els.pair.classList.toggle('connected', state === 'connected');
-      els.pairThanks.hidden = state === 'connected' || els.pairQr.hidden;
       if (state === 'waiting') {
         const qr = qrcode(0, 'M');
         qr.addData(info);
         qr.make();
         els.pairQr.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true });
         els.pairQr.hidden = false;
-        els.pairThanks.hidden = false;
-        els.pairState.textContent = 'QR-Code mit der Handykamera scannen und den Link öffnen.';
+        els.pairState.textContent = 'Zur Benutzung deiner Handykamera den QR-Code mit dem Handy scannen und den Link öffnen.';
       } else if (state === 'connected') {
         els.pairQr.hidden = true;
         els.pairState.replaceChildren('Handy verbunden ', checkMark());
@@ -979,7 +976,6 @@ function startPairing() {
         els.pairState.textContent = 'Handy gerade nicht erreichbar (Bildschirm gesperrt?). Es verbindet sich automatisch wieder, sobald die Seite am Handy offen ist.';
       } else if (state === 'disconnected') {
         els.pairQr.hidden = false;
-        els.pairThanks.hidden = false;
         els.pairState.textContent = 'Handy getrennt. Es verbindet sich automatisch wieder, solange die Seite am Handy offen ist. Sonst den QR-Code noch einmal scannen.';
       } else if (state === 'error') {
         els.pairState.textContent = info;
