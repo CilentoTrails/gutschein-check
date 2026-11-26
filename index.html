@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gutschein-Check">
-  <link rel="stylesheet" href="style.css?v=28">
+  <link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
   <main>
@@ -22,6 +22,8 @@
 
     <!-- Handy: Status der Verbindung -->
     <p id="pair-note" class="phone-only" role="status" hidden></p>
+    <!-- nur wenn die Verbindung hängt: QR-Code am Rechner neu scannen (mit der Kamera dieser Seite) -->
+    <button id="btn-rescan" type="button" class="secondary phone-only rescan" hidden>QR-Code neu scannen</button>
 
     <!-- Ergebnis: das Wichtigste, deshalb ganz oben -->
     <section id="result" hidden></section>
@@ -89,6 +91,6 @@
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="vendor/peerjs/peerjs.min.js"></script>
   <script src="vendor/qrcode/qrcode.js"></script>
-  <script type="module" src="app.js?v=28"></script>
+  <script type="module" src="app.js?v=29"></script>
 </body>
 </html>

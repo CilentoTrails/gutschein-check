@@ -20,6 +20,7 @@ const els = {
   pairState: $('#pair-state'),
   pairNew: $('#btn-pair-new'),
   pairNote: $('#pair-note'),
+  rescan: $('#btn-rescan'),
   pairThanks: $('#pair-thanks'),
 };
 
@@ -305,7 +306,7 @@ function show(r) {
     guest.result(r, onWait).then((ok) =>
       ok
         ? (pairNote('An die Website gesendet', false, true), (els.pairNote.dataset.sent = '1'))
-        : pairNote('Nicht an der Website angekommen. Ist sie am Rechner noch offen? Sonst QR-Code neu scannen.', true)
+        : (pairNote('Nicht an der Website angekommen. Ist sie am Rechner noch offen? Sonst QR-Code neu scannen.', true), (els.rescan.hidden = false))
     );
   }
 }
@@ -713,7 +714,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     row.className = 'field' + (f.check ? ' check' : '');
     const cap = document.createElement('span');
     cap.append(f.label);
-    if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Bitte mit Karte vergleichen' }));
+    if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Schlecht lesbar – bitte überprüfen!' }));
     row.append(cap);
     const wrap = document.createElement('div');
     // mehrzeiliges Feld: lange Nummern brechen um statt abgeschnitten zu werden
@@ -784,7 +785,8 @@ let stream = null;
 let session = 0;
 const MAX_TRIES = 3;
 
-async function startCamera() {
+// mode 'card': Karte scannen; mode 'qr': QR-Code am Rechner neu scannen (Verbindung neu aufbauen)
+async function startCamera(mode = 'card') {
   stopCamera();
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -806,9 +808,32 @@ async function startCamera() {
   els.stage.hidden = false;
   els.result.hidden = true;
   els.stage.scrollIntoView({ block: 'start' });
+  els.snap.hidden = mode === 'qr';
+  if (mode === 'qr') {
+    status('Kamera auf den QR-Code am Rechner halten …');
+    qrLoop(++session);
+    return;
+  }
   status('Karte mit der Rückseite (Barcode) in den Rahmen halten, möglichst nah und ruhig …');
   ocrWorker(); // OCR schon mal im Hintergrund laden
   scanLoop(++session);
+}
+
+// QR-Code am Rechner lesen und mit dessen Verbindungs-ID neu verbinden
+async function qrLoop(id) {
+  while (id === session && stream) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (id !== session || !stream || !els.video.videoWidth) continue;
+    const c = scaled(els.video, 1280);
+    const hit = (await decodeNative(c)) || (await decodeCanvas(c, { formats: ['QRCode'] }));
+    const m = hit?.text.match(/#pair=([0-9a-f-]{36})/i);
+    if (!m) continue;
+    navigator.vibrate?.(60);
+    stopCamera();
+    status('');
+    connectGuest(m[1]);
+    return;
+  }
 }
 
 function stopCamera() {
@@ -912,7 +937,7 @@ async function scanLoop(id) {
   show(best);
 }
 
-els.start.onclick = startCamera;
+els.start.onclick = () => startCamera('card');
 els.snap.onclick = () => { manual = true; status('Lese aus …'); };
 els.stop.onclick = () => { stopCamera(); status(''); };
 
@@ -976,12 +1001,19 @@ const pairCode = pairCodeFromUrl();
 document.body.classList.add(pairCode ? 'mode-phone' : 'mode-desk');
 els.pairNew.onclick = startPairing;
 if (!pairCode) startPairing();
-else {
+else connectGuest(pairCode);
+
+// Handy: mit dem Rechner verbinden (auch erneut, nach Neuscannen des QR-Codes)
+function connectGuest(code) {
+  guest?.stop();
+  els.rescan.hidden = true;
   pairNote('Verbinde mit der Website …');
-  guest = startGuest(pairCode, {
+  guest = startGuest(code, {
     onState: (state, info) => {
       // „gesendet“ stehen lassen, solange die Verbindung hält; bei echten Problemen überschreiben
       if (state !== 'connected') delete els.pairNote.dataset.sent;
+      // „QR-Code neu scannen“ nur anbieten, solange die Verbindung hängt
+      els.rescan.hidden = state === 'connected';
       if (state === 'connected') { if (!els.pairNote.dataset.sent) pairNote('Mit der Website verbunden', false, true); }
       else if (state === 'reconnecting') pairNote('Verbindung zur Website unterbrochen – verbinde neu …', true);
       else if (state === 'waiting-host') pairNote('Website am Rechner gerade nicht erreichbar – versuche weiter …', true);
@@ -989,6 +1021,7 @@ else {
     },
   });
 }
+els.rescan.onclick = () => startCamera('qr');
 
 // Handy: Bildschirm wach halten, solange die Seite offen ist und benutzt wird (Screen Wake Lock).
 // Sonst sperrt sich das Handy beim Liegenlassen, und der Browser trennt die Verbindung.

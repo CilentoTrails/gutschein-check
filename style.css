@@ -229,3 +229,6 @@ pre { white-space: pre-wrap; word-break: break-word; }
   #wa-qr { width: min(220px, 62vw); margin: 0 auto; }
 }
 .mode-desk main { padding-bottom: 90px; } /* Platz für den festen WhatsApp-Knopf */
+
+/* Handy: „QR-Code neu scannen“, nur wenn die Verbindung hängt */
+.rescan { width: 100%; margin: -6px 0 14px; }
