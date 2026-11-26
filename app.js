@@ -393,6 +393,8 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
   let best = null;
   for (const tpl of templates) {
     const v = voteTemplate(reads, tpl);
+    // 18-stellige Lidl-Nummern beginnen mit „01“ (ALDI-Nummern nie): sonst ist es eine abgeschnittene 20er
+    if (v && tpl.join() === '4,4,4,4,2' && !v.text.startsWith('01')) continue;
     if (v && (!best || v.support > best.support)) best = v;
   }
   if (best) {
@@ -415,7 +417,8 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
 async function readNumberBand(canvas, loc, flip) {
   const bh = Math.max(loc.T * 0.75, loc.L * 0.1);
   const k = Math.max(1, Math.min(6, 160 / bh));
-  const crop = cropAligned(canvas, loc, { dv: loc.T / 2 + bh / 2, bw: loc.L * 1.3, bh, k, flip });
+  // breit genug, falls die Barcode-Länge im unscharfen Bild unterschätzt wird (Zusatzzahlen rechts fängt das Druckbild ab)
+  const crop = cropAligned(canvas, loc, { dv: loc.T / 2 + bh / 2, bw: loc.L * 1.7, bh, k, flip });
   const r = await readDigitRow(crop, 8, NUMBER_TEMPLATES);
   if (!r) return { lines: [], score: 0 };
   // Einzellesungen als Alternativen mitgeben (z. B. für die Prüfziffer bei EDEKA)
