@@ -375,7 +375,7 @@ function voteTemplate(reads, tpl) {
 }
 
 // Ziffernzeile in einem Ausschnitt finden, eng zuschneiden und mehrfach nur mit Ziffern lesen.
-async function readDigitRow(crop, minChars, templates = [], box = findTextRow(crop, { minChars })) {
+async function readDigitRow(crop, minChars, templates = [], box = findTextRow(crop, { minChars, extend: minChars >= 8 })) {
   if (!box) return null;
   const reads = [];
   const variants = [[36, 0, 0], [36, 0.5, 3], [48, 0, 0], [28, 0.3, 0], [44, 0.8, 0], [56, 0.4, 3]];

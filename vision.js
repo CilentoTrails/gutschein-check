@@ -226,7 +226,7 @@ export function refineLoc(src, loc) {
 
 // Sucht in einem Ausschnitt die Zeile aus Zeichen (dunkle Flecken gleicher Höhe nebeneinander)
 // und gibt ihren Rahmen zurück. minChars = mindestens so viele Zeichen.
-export function findTextRows(c, { minChars = 3, minH = 0.08, maxH = 0.8, maxRows = 4 } = {}) {
+export function findTextRows(c, { minChars = 3, minH = 0.08, maxH = 0.8, maxRows = 4, extend = false } = {}) {
   const w = c.width, h = c.height;
   const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
   const g = new Float32Array(w * h);
@@ -274,9 +274,9 @@ export function findTextRows(c, { minChars = 3, minH = 0.08, maxH = 0.8, maxRows
     rows.push(...r.boxes);
     rest = rest.filter((c) => !r.used.has(c));
   }
-  // Zeile seitlich erweitern: Zeichen, die mit etwas darüber/darunter verschmolzen sind (z. B. Barcode-
+  // extend: Zeile seitlich erweitern (nur für lange Nummern): Zeichen, die mit etwas darüber/darunter verschmolzen sind (z. B. Barcode-
   // Striche im unscharfen Bild), fehlen sonst. Solange in der Zeilenhöhe dunkle Spalten folgen.
-  for (const b of rows) {
+  for (const b of extend ? rows : []) {
     const yA = Math.round(b.y + b.charH * 0.45), yB = Math.round(b.y + b.h - b.charH * 0.45);
     const darkCol = (x) => { for (let y = yA; y <= yB; y++) if (f[y * w + x] <= thr) return true; return false; };
     const gapMax = b.charH * 1.2;
