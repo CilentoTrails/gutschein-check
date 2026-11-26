@@ -257,8 +257,13 @@ function status(msg) {
 function show(r) {
   render(r);
   if (guest) {
-    const ok = guest.result(r);
-    pairNote(ok ? 'An den Rechner gesendet ✓ – dort kopieren.' : 'Nicht gesendet: keine Verbindung zum Rechner. QR-Code am Rechner neu scannen.', !ok);
+    pairNote('Wird an den Rechner gesendet …');
+    guest.result(r).then((ok) =>
+      pairNote(
+        ok ? 'Am Rechner angekommen ✓ – dort kopieren.' : 'Nicht am Rechner angekommen. Ist die Seite dort noch offen? Sonst QR-Code neu scannen. Die Werte stehen auch hier unten.',
+        !ok
+      )
+    );
   }
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -785,9 +790,11 @@ function startPairing() {
       } else if (state === 'connected') {
         els.pairQr.hidden = true;
         els.pairState.textContent = 'Handy verbunden ✓ Karte jetzt am Handy scannen. Nummer und PIN erscheinen hier.';
+      } else if (state === 'idle') {
+        els.pairState.textContent = 'Handy gerade nicht erreichbar (Bildschirm gesperrt?). Es verbindet sich automatisch wieder, sobald die Seite am Handy offen ist.';
       } else if (state === 'disconnected') {
         els.pairQr.hidden = false;
-        els.pairState.textContent = 'Handy getrennt. Zum erneuten Verbinden den QR-Code noch einmal scannen.';
+        els.pairState.textContent = 'Handy getrennt. Es verbindet sich automatisch wieder, solange die Seite am Handy offen ist. Sonst den QR-Code noch einmal scannen.';
       } else if (state === 'error') {
         els.pairState.textContent = info;
       }
@@ -822,7 +829,7 @@ if (pairCode) {
   guest = startGuest(pairCode, {
     onState: (state, info) => {
       if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓ Karte scannen – das Ergebnis erscheint auch am Rechner.');
-      else if (state === 'disconnected') pairNote('Verbindung zum Rechner getrennt. QR-Code am Rechner neu scannen.', true);
+      else if (state === 'reconnecting') pairNote('Verbindung zum Rechner unterbrochen – verbinde neu …', true);
       else if (state === 'error') pairNote(info, true);
     },
   });

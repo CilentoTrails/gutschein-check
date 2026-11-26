@@ -2,10 +2,20 @@
 // Der Rechner zeigt einen QR-Code mit einer zufälligen Verbindungs-ID. Das Handy öffnet den Link,
 // erkennt die Karte selbst und schickt nur das Ergebnis direkt (verschlüsselt) an den Rechner.
 // Der PeerJS-Vermittlungsserver sieht nur die ID, keine Kartendaten.
+//
+// Robustheit:
+// - Mehrere Verbindungen vom Handy werden angenommen (QR-Scanner öffnen Links oft doppelt, Seite neu geladen …).
+// - Der Rechner bestätigt jedes Ergebnis (ack). Ohne Bestätigung sendet das Handy erneut bzw. meldet es.
+// - Das Handy schickt regelmäßig ein Lebenszeichen und verbindet sich nach Abbrüchen neu
+//   (z. B. nach Bildschirmsperre), solange die Seite offen ist.
+// - JSON statt Binärformat: funktioniert in allen Browsern (auch Safari) gleich.
 
 const OPTS = window.GC_PEER_OPTIONS || { debug: 0 }; // Standard: kostenloser PeerJS-Server
 const PREFIX = 'gutschein-check-';
 const LIMIT = 300; // max. Länge eines Textes in einer Nachricht
+const PING_MS = 3000;
+const ACK_MS = 5000;
+const STORE = 'gc-pair-code';
 
 const ERRORS = {
   'peer-unavailable': 'Rechner nicht erreichbar. Ist die Seite dort noch offen? QR-Code neu scannen.',
@@ -15,88 +25,193 @@ const ERRORS = {
 };
 const errText = (e) => ERRORS[e?.type] || 'Verbindung fehlgeschlagen (' + (e?.type || e) + ').';
 
-/* ---------- Rechner ---------- */
-export function startHost({ onState, onStatus, onResult }) {
-  const id = PREFIX + crypto.randomUUID();
-  const peer = new Peer(id, OPTS);
-  let conn = null;
-  peer.on('open', () => {
-    const url = new URL(location.href);
-    url.search = '';
-    url.hash = 'pair=' + id.slice(PREFIX.length);
-    onState('waiting', url.href);
-  });
-  peer.on('connection', (c) => {
-    // nur ein Handy gleichzeitig
-    if (conn?.open) {
-      c.on('open', () => c.close());
-      return;
-    }
-    conn = c;
-    c.on('open', () => onState('connected'));
-    c.on('data', (msg) => {
-      if (!msg || typeof msg !== 'object') return;
-      if (msg.type === 'status') onStatus(clip(msg.text));
-      if (msg.type === 'result') {
-        const r = cleanResult(msg.data);
-        if (r) onResult(r);
-      }
-    });
-    c.on('close', () => { if (conn === c) { conn = null; onState('disconnected'); } });
-    c.on('error', () => {});
-  });
-  // Verbindung zum Vermittlungsserver verloren: ID behalten und nach kurzer Pause neu verbinden
+// Verbindung zum Vermittlungsserver nach Abbruch mit wachsender Pause neu aufbauen
+function keepSignaling(peer) {
   let retry = 0;
   peer.on('open', () => { retry = 0; });
   peer.on('disconnected', () => {
     const wait = Math.min(30000, 2000 * 2 ** retry++);
     setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, wait);
   });
+}
+
+/* ---------- Rechner ---------- */
+export function startHost({ onState, onStatus, onResult }) {
+  const id = PREFIX + crypto.randomUUID();
+  const peer = new Peer(id, OPTS);
+  let conn = null;
+  let lastSeen = 0;
+  let alive = false;
+  const seen = new Set(); // bereits angezeigte Ergebnisse (bei erneutem Senden nicht doppelt)
+
+  peer.on('open', () => {
+    const url = new URL(location.href);
+    url.search = '';
+    url.hash = 'pair=' + id.slice(PREFIX.length);
+    onState('waiting', url.href);
+  });
+  // Alle offenen Verbindungen annehmen (QR-Scanner-Vorschau und Browser können beide offen sein);
+  // was zuletzt Daten schickt, zählt als aktiv.
+  const conns = new Set();
+  peer.on('connection', (c) => {
+    c.on('open', () => {
+      conns.add(c);
+      conn = c;
+      lastSeen = Date.now();
+      alive = true;
+      onState('connected');
+    });
+    c.on('data', (msg) => {
+      if (!msg || typeof msg !== 'object') return;
+      conn = c;
+      lastSeen = Date.now();
+      if (!alive) { alive = true; onState('connected'); }
+      if (msg.type === 'ping') c.send({ type: 'pong' });
+      if (msg.type === 'status') onStatus(clip(msg.text));
+      if (msg.type === 'result') {
+        const n = clip(String(msg.n ?? ''));
+        c.send({ type: 'ack', n });
+        if (seen.has(n)) return;
+        seen.add(n);
+        const r = cleanResult(msg.data);
+        if (r) onResult(r);
+      }
+    });
+    c.on('close', () => {
+      conns.delete(c);
+      if (conn === c) conn = [...conns].pop() || null;
+      if (!conns.size) { alive = false; onState('disconnected'); }
+    });
+    c.on('error', () => {});
+  });
+  // kein Lebenszeichen mehr (Handy gesperrt, Verbindung tot)
+  const watch = setInterval(() => {
+    if (conn && alive && Date.now() - lastSeen > PING_MS * 4) {
+      alive = false;
+      onState('idle');
+    }
+  }, 1000);
+  keepSignaling(peer);
   peer.on('error', (e) => onState('error', errText(e)));
-  return { stop: () => peer.destroy() };
+  return { stop: () => { clearInterval(watch); peer.destroy(); } };
 }
 
 /* ---------- Handy ---------- */
 export function startGuest(code, { onState }) {
+  try { sessionStorage.setItem(STORE, code); } catch {}
   const peer = new Peer(OPTS);
   let conn = null;
-  peer.on('open', () => {
-    conn = peer.connect(PREFIX + code, { reliable: true });
-    conn.on('open', () => onState('connected'));
-    conn.on('close', () => onState('disconnected'));
-    conn.on('error', (e) => onState('error', errText(e)));
+  let connecting = false;
+  let lastPong = 0;
+  const waiting = new Map(); // n -> resolve
+  let counter = 0;
+
+  function connect() {
+    if (peer.destroyed || connecting || peer.disconnected) return;
+    connecting = true;
+    const c = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
+    const giveUp = setTimeout(() => { if (!c.open) { connecting = false; try { c.close(); } catch {} } }, 8000);
+    c.on('open', () => {
+      clearTimeout(giveUp);
+      connecting = false;
+      if (conn && conn !== c) try { conn.close(); } catch {}
+      conn = c;
+      lastPong = Date.now();
+      onState('connected');
+    });
+    c.on('data', (msg) => {
+      if (!msg || typeof msg !== 'object') return;
+      lastPong = Date.now();
+      if (msg.type === 'ack') {
+        waiting.get(msg.n)?.(true);
+        waiting.delete(msg.n);
+      }
+    });
+    c.on('close', () => {
+      clearTimeout(giveUp);
+      connecting = false;
+      if (conn === c) { conn = null; onState('reconnecting'); }
+    });
+    c.on('error', () => {});
+  }
+
+  peer.on('open', connect);
+  keepSignaling(peer);
+  peer.on('error', (e) => {
+    connecting = false;
+    // Rechner (noch) nicht erreichbar: weiter versuchen, aber Bescheid geben
+    onState('error', errText(e));
   });
-  peer.on('error', (e) => onState('error', errText(e)));
+
+  // Lebenszeichen; tote Verbindung erkennen und neu verbinden
+  const beat = setInterval(() => {
+    if (conn?.open) {
+      try { conn.send({ type: 'ping' }); } catch {}
+      if (Date.now() - lastPong > PING_MS * 4) {
+        try { conn.close(); } catch {}
+        conn = null;
+        onState('reconnecting');
+      }
+    } else if (!connecting && peer.open) connect();
+  }, PING_MS);
+  // nach Bildschirmsperre / App-Wechsel sofort prüfen
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !conn?.open && peer.open) connect();
+  });
+
   const send = (msg) => {
     if (!conn?.open) return false;
-    conn.send(msg);
-    return true;
+    try { conn.send(msg); return true; } catch { return false; }
   };
+
+  // Ergebnis senden und auf Bestätigung warten; bis zu 3 Versuche (auch über Neuverbindung hinweg)
+  async function result(r) {
+    const n = Date.now().toString(36) + '-' + counter++;
+    const msg = { type: 'result', n, data: pack(r) };
+    for (let i = 0; i < 3; i++) {
+      if (!conn?.open) await new Promise((ok) => setTimeout(ok, 2500));
+      if (!send(msg)) continue;
+      const ok = await new Promise((resolve) => {
+        waiting.set(n, resolve);
+        setTimeout(() => { if (waiting.get(n) === resolve) { waiting.delete(n); resolve(false); } }, ACK_MS);
+      });
+      if (ok) return true;
+    }
+    return false;
+  }
+
   return {
-    status: (text) => send({ type: 'status', text: text || '' }),
-    result: (r) =>
-      send({
-        type: 'result',
-        data: {
-          brand: r.res.brand,
-          fields: r.res.fields.map(({ key, label, value, check, unsure }) => ({ key, label, value, check, unsure })),
-          barcodes: r.barcodes.map((b) => ({ format: b.format, text: b.text })),
-          lines: r.lines.map((l) => ({ text: l.text })),
-          numberLines: (r.numberLines || []).map((l) => ({ text: l.text })),
-          located: !!r.located,
-        },
-      }),
-    isOpen: () => !!conn?.open,
-    stop: () => peer.destroy(),
+    status: (text) => send({ type: 'status', text: (text || '').slice(0, LIMIT) }),
+    result,
+    stop: () => { clearInterval(beat); peer.destroy(); },
   };
 }
 
-// Code aus dem Link (#pair=…) lesen und aus der Adresszeile entfernen
+// Kompakt: nur was der Rechner anzeigt (Rohtext gekürzt)
+function pack(r) {
+  return {
+    brand: r.res.brand,
+    fields: r.res.fields.map(({ key, label, value, check, unsure }) => ({ key, label, value, check, unsure })),
+    barcodes: r.barcodes.map((b) => ({ format: b.format, text: b.text })),
+    lines: r.lines.slice(0, 40).map((l) => ({ text: l.text.slice(0, 120) })),
+    numberLines: (r.numberLines || []).map((l) => ({ text: l.text })),
+    located: !!r.located,
+  };
+}
+
+// Code aus dem Link (#pair=…) lesen und aus der Adresszeile entfernen.
+// Beim Neuladen der Seite (Link ohne Code) wird der Code aus dieser Browser-Sitzung übernommen.
 export function pairCodeFromUrl() {
   const m = location.hash.match(/^#pair=([0-9a-f-]{36})$/i);
-  if (!m) return null;
-  history.replaceState(null, '', location.pathname + location.search);
-  return m[1];
+  if (m) {
+    history.replaceState(null, '', location.pathname + location.search);
+    return m[1];
+  }
+  try {
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav?.type === 'reload') return sessionStorage.getItem(STORE);
+  } catch {}
+  return null;
 }
 
 /* ---------- empfangene Daten prüfen (nur Text, begrenzte Länge) ---------- */
