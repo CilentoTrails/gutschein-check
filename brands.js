@@ -8,11 +8,19 @@ export const BRANDS = {
     name: 'dm',
     color: '#1b3d8f',
     url: 'https://www.dm.de/services/services-im-markt/geschenkkarten-3480686#abfrage-guthaben',
+    where: {
+      card: 'Hinter „Kartennummer:“, 8 Zeichen (Buchstaben und Ziffern).',
+      pin: 'Hinter „Code:“, 4 Zeichen.',
+    },
   },
   aldi: {
     name: 'ALDI (Helaba)',
     color: '#00549f',
     url: 'https://www.helaba.com/de/aldi',
+    where: {
+      pin: '4-stellig im silbernen Hologramm-Feld rechts oberhalb des Barcodes (Höhe „Seriennr.“).',
+      card: '20-stellige Zahl direkt unter dem Barcode (5 Vierergruppen).',
+    },
   },
   lidl: {
     name: 'Lidl',
@@ -28,6 +36,11 @@ export const BRANDS = {
     name: 'EDEKA',
     color: '#1e4fa0',
     url: 'https://evci.pin-host.com/evci/#/guthabenabfrage',
+    where: {
+      pin: '4-stellig auf dem Silberstreifen oben links.',
+      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“.',
+      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“.',
+    },
   },
 };
 
@@ -45,7 +58,7 @@ const toDigits = (s) =>
 
 const group = (s, n = 4) => s.replace(new RegExp(`(.{${n}})(?=.)`, 'g'), '$1 ');
 
-function scoreBrands(text, barcodes) {
+function scoreBrands(text, barcodes, pseudo = []) {
   const t = text.toLowerCase();
   const s = { dm: 0, aldi: 0, lidl: 0, rewe: 0, edeka: 0 };
   const hit = (b, re, w = 1) => { if (re.test(t)) s[b] += w; };
@@ -53,6 +66,9 @@ function scoreBrands(text, barcodes) {
   hit('dm', /dm-?drogerie|dm\.de|dm-markt|dm-app/, 3);
   hit('dm', /kartennummer\s*:?\s*[a-z0-9]{4}\s?[a-z0-9]{4}\b/, 1);
   hit('aldi', /helaba|landesbank|aldi/, 3);
+  // unscharfe Lesungen tolerieren (z. B. „Holaba“, „He1aba“, „Seriennr“ nur auf ALDI-Gutscheinen)
+  hit('aldi', /h[ceo][l1i|][ao][bh8][ao]|lande[s5]bank|hessen-?th/, 2);
+  hit('aldi', /seri[ec]nn?r|geschenkgutschein/, 1);
   hit('lidl', /lidl/, 3);
   hit('rewe', /rewe|kartenwelt/, 3);
   hit('edeka', /edeka|a1 ?bank|marktkauf|ktrl/, 3);
@@ -64,6 +80,13 @@ function scoreBrands(text, barcodes) {
     if (/aztec/i.test(b.format)) s.rewe += 2;
     if (/^0104053868100364/.test(d)) s.aldi += 3;
     if (/^0104053868100388/.test(d)) s.lidl += 3;
+  }
+  // per Texterkennung gelesene Klartext-Nummer (kann Lesefehler enthalten)
+  for (const b of pseudo) {
+    // 20-stellig in 5 Vierergruppen gedruckt: Helaba-Gutschein (ALDI); nur schwacher Hinweis
+    if (/^\d{20}$/.test(b.text)) s.aldi += 0.5;
+    if (/4041578\d{6}21\d{10,}/.test(b.text)) s.edeka += 4;
+    if (/9071\d{18,}/.test(b.text)) s.dm += 2;
   }
   return s;
 }
@@ -114,15 +137,33 @@ function longNumberAfter(text, labelRe, min, max) {
   return d.length >= min ? d.slice(0, max) : '';
 }
 
-export function analyze({ barcodes, lines, digitLines = [] }) {
+// numberLines = per Texterkennung gelesene Klartext-Nummer unter dem Barcode.
+// Sie ersetzt den Barcode, wenn der nicht lesbar war; Werte daraus gelten als unsicher.
+export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) {
   const text = lines.map((l) => l.text).join('\n');
-  const scores = scoreBrands(text, barcodes);
+  // dazu Zeilen aus dem normalen Text, die fast nur aus Ziffern bestehen (Klartext-Nummer)
+  const numLike = lines.filter((l) => /^[\dOoIl| ]{16,}$/.test(l.text.trim()) && digits(l.text).length >= 12);
+  const seen = new Set();
+  const pseudo = [...numberLines, ...numLike]
+    .map((l) => ({ text: toDigits(l.text), format: 'OCR', ocr: true, conf: numberLines.includes(l) ? l.conf : 0 }))
+    .filter((b) => b.text.length >= 10 && !seen.has(b.text) && seen.add(b.text));
+  const scores = scoreBrands(text, barcodes, pseudo);
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
   const brand = best[1] > 0 ? best[0] : null;
-  const bc = barcodes.map((b) => ({ ...b, d: digits(b.text) }));
+  const bc = [...barcodes, ...pseudo].map((b) => ({ ...b, d: digits(b.text) }));
   const pin = findPin(lines, digitLines, bc.map((b) => b.d));
   const fields = [];
-  const f = (key, label, value, check = false) => fields.push({ key, label, value: value || '', check });
+  const f = (key, label, value, check = false, unsure = false) =>
+    fields.push({ key, label, value: value || '', check, unsure: !!(value && unsure) });
+  // erste passende Nummer: exakte Barcodes zuerst, dann OCR-Klartext (ungeankert)
+  // ocr = unsicher: aus Texterkennung und nicht sehr sicher gelesen
+  const pick = (exact, loose) => {
+    for (const b of bc) {
+      const m = b.d.match(b.ocr ? loose || exact : exact);
+      if (m) return { m, ocr: !!b.ocr && !(b.conf >= 92) };
+    }
+    return { m: null, ocr: false };
+  };
 
   switch (brand) {
     case 'dm': {
@@ -134,42 +175,43 @@ export function analyze({ barcodes, lines, digitLines = [] }) {
       const m = cands[0]?.m;
       f('card', 'Kartennummer (8 Zeichen)', m ? `${m[1]}${m[2]}`.toUpperCase() : '', true);
       f('pin', 'Code', pin, true);
-      const long = bc.find((b) => /^9071\d{20}$/.test(b.d));
-      if (long) f('card24', 'Alternative: 24-stellige Nummer (Barcode)', long.d);
+      const long = pick(/^(9071\d{20})$/, /(9071\d{20})/);
+      if (long.m) f('card24', 'Alternative: 24-stellige Nummer (Barcode)', long.m[1], false, long.ocr);
       break;
     }
     case 'edeka': {
-      const g = bc.map((b) => b.d.match(/^0104041578(\d{6})21(\d{14})$/)).find(Boolean);
-      f('part1', 'Kartennummer – kurzes Feld (nach 010 4041578)', g ? g[1] : '', true);
-      f('part2', 'Kartennummer – langes Feld (nach 21)', g ? g[2] : '', true);
+      const { m: g, ocr } = pick(/^0104041578(\d{6})21(\d{14})$/, /4041578(\d{6})21(\d{14})/);
+      f('part1', 'Kartennummer – kurzes Feld (nach 010 4041578)', g ? g[1] : '', true, ocr);
+      f('part2', 'Kartennummer – langes Feld (nach 21)', g ? g[2] : '', true, ocr);
       f('pin', 'PIN-Code', pin, true);
       break;
     }
     case 'aldi':
     case 'lidl': {
       // GS1-Barcode: (01) GTIN + (90) 20-stellige Gutscheinnummer
-      const g = bc.map((b) => b.d.match(/^01\d{14}90(\d{20})$/) || b.d.match(/^(\d{20})$/)).find(Boolean);
-      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer', g ? g[1] : '', true);
+      const { m: g, ocr } = pick(/^01\d{14}90(\d{20})$|^(\d{20})$/);
+      const num = g ? g[1] || g[2] : '';
+      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer', num, true, ocr);
       f('pin', 'PIN', pin, true);
-      const s = longNumberAfter(text, /seriennr/, 12, 22);
+      const s = longNumberAfter(text, /seriennr/, 12, 19);
       if (s) f('serial', 'Seriennummer', s);
       break;
     }
     case 'rewe': {
       // Aztec-Code = 13-stellige Kartennummer + 26-stellige Zusatznummer
-      const az = bc.map((b) => b.d.match(/^(\d{13})(\d{26})$/)).find(Boolean);
+      const az = bc.filter((b) => !b.ocr).map((b) => b.d.match(/^(\d{13})(\d{26})$/)).find(Boolean);
       let card = az ? az[1] : '';
       if (!card) {
         const m = text.match(/(?<!\d)(\d{13})(?!\d)/);
         card = m ? m[1] : '';
       }
-      f('card', 'Kartennummer', card, true);
+      f('card', 'Kartennummer', card, true, !az);
       f('pin', 'PIN', pin, true);
       break;
     }
     default: {
       const long = bc.find((b) => b.d.length >= 10);
-      f('barcode', 'Barcode-Nummer', long ? long.d : '', true);
+      f('barcode', 'Barcode-Nummer', long ? long.d : '', true, long?.ocr);
       f('pin', 'PIN/Code', pin, true);
     }
   }

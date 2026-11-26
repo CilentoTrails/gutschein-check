@@ -18,12 +18,22 @@ Web-App (PWA) zum Auslesen von Geschenkkarten per Kamera. Sie erkennt Marke, Kar
 
 Barcode-Werte sind exakt. PIN und Code kommen aus der Texterkennung (oft auf Hologramm-Untergrund) und werden markiert, wenn sie unsicher sind.
 
+## So erkennt die App die Karte
+
+1. **Barcode-Bereich finden** (`vision.js`): sucht Stellen mit vielen parallelen Kanten. Das klappt auch, wenn der Barcode zu klein oder unscharf zum Dekodieren ist. Daraus ergeben sich Lage, Größe und Drehung der Karte.
+2. **Barcode lesen**: eingebaute `BarcodeDetector`-API des Browsers (falls vorhanden), sonst zxing. Zuerst wird das ganze Bild versucht, dann der gerade gedrehte und vergrößerte Barcode-Ausschnitt mit mehreren Schwellwerten.
+3. **Klartext-Nummer unter dem Barcode** lesen, wenn der Barcode nicht lesbar ist. Die Ziffernzeile wird eng zugeschnitten und mehrfach gelesen. Die Lesungen stimmen nach dem bekannten Druckbild ab (ALDI 4-4-4-4-4, EDEKA 3-7-1-3-2-2-4-4-4-2). Solche Werte gelten als unsicher, bis zwei Kamerabilder dasselbe ergeben.
+4. **PIN an der bekannten Stelle** lesen: ALDI im Hologramm-Feld rechts oberhalb des Barcodes, EDEKA auf dem Silberstreifen oben links. Sonst über die Beschriftung („Code“, „PIN“).
+5. **Kamera-Modus**: Nach einem Treffer sammelt die App noch ca. 0,7 s Bilder und wertet das schärfste aus. Fehlt etwas oder ist etwas unsicher, versucht sie es mit bis zu 3 Bildern und führt die Ergebnisse zusammen.
+
+Tipp: Karte so nah halten, dass sie den Rahmen fast füllt. Laptop-Webcams (oft 720p, Fixfokus) liefern bei kleinen Karten zu wenig Schärfe. Mit der Handykamera geht es meist deutlich besser.
+
 ## Technik
 
 - Barcode/Aztec: [zxing-wasm](https://github.com/Sec-ant/zxing-wasm) (zxing-cpp), Apache-2.0
 - Texterkennung: [Tesseract.js](https://github.com/naptha/tesseract.js) v5 mit `eng` (best_int), Apache-2.0
 - Alle Bibliotheken liegen in `vendor/`, es gibt keine Abhängigkeit von CDNs. Beim ersten Laden kommen etwa 8 MB, danach liegen sie im Cache (Service Worker).
-- Logik: `brands.js` (Markenerkennung, Feld-Extraktion), `app.js` (Kamera, Ablauf, UI)
+- Logik: `brands.js` (Markenerkennung, Feld-Extraktion, Lage der Felder), `vision.js` (Barcode-Bereich, Zuschnitt, Ziffernzeilen, Schärfe), `app.js` (Kamera, Ablauf, UI)
 
 ## Lokal starten
 
