@@ -332,6 +332,7 @@ function cardCrop(canvas, loc, flip) {
 // Bekannte Druckbilder der Klartext-Nummern (Zifferngruppen)
 const NUMBER_TEMPLATES = [
   [4, 4, 4, 4, 4], // ALDI/Lidl (Helaba): 20-stellige Gutscheinnummer
+  [4, 4, 4, 4, 2], // neuere Lidl-Karten: 18-stellig (0134 2850 5916 2570 02)
   [3, 7, 1, 3, 2, 2, 4, 4, 4, 2], // EDEKA: 010 4041578 9 023 09 21 0860 … (GS1)
   [4, 4, 4, 4, 4, 4], // dm: 24-stellige Kartennummer 9071 …
 ];

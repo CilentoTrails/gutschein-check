@@ -28,7 +28,7 @@ export const BRANDS = {
     color: '#0050aa',
     url: 'https://www.lidl.de/c/lidl-geschenkkarten/s10007775',
     where: {
-      card: 'Zahl direkt unter dem Barcode (20-stellig, ohne die kurze Zahl ganz rechts).',
+      card: 'Zahl direkt unter dem Barcode (18- oder 20-stellig, ohne die kurze Zahl ganz rechts).',
       pin: '4-stellig im silbernen Hologramm-Feld rechts oberhalb des Barcodes.',
     },
   },
@@ -80,9 +80,11 @@ function scoreBrands(text, barcodes, pseudo = []) {
   hit('dm', /dm-?drogerie|dm\.de|dm-markt|dm-app/, 3);
   hit('dm', /kartennummer\s*:?\s*[a-z0-9]{4}\s?[a-z0-9]{4}\b/, 1);
   hit('aldi', /helaba|landesbank|aldi/, 3);
-  // unscharfe Lesungen tolerieren (z. B. „Holaba“, „He1aba“, „Seriennr“ nur auf ALDI-Gutscheinen)
+  // unscharfe Lesungen tolerieren (z. B. „Holaba“, „He1aba“)
   hit('aldi', /h[ceo][l1i|][ao][bh8][ao]|lande[s5]bank|hessen-?th/, 2);
-  hit('aldi', /seri[ec]nn?r|geschenkgutschein/, 1);
+  hit('aldi', /geschenkgutsche[il1]n/, 1); // ALDI: „Geschenkgutschein“ (Lidl: „Geschenkkarte“); „Seriennr.“ steht auf beiden
+  // Lidl-Rückseite, auch unscharf gelesen: Herausgeber-Text
+  hit('lidl', /bad ?w[il1]mpfen|bonfelder|l[il1]d[l1i] ?d[il1]enst/, 2);
   hit('lidl', /lidl/, 3);
   hit('rewe', /rewe|kartenwelt/, 3);
   hit('edeka', /edeka|a1 ?bank|marktkauf|ktrl/, 3);
@@ -94,11 +96,13 @@ function scoreBrands(text, barcodes, pseudo = []) {
     if (/aztec/i.test(b.format)) s.rewe += 2;
     if (/^0104053868100364/.test(d)) s.aldi += 3;
     if (/^0104053868100388/.test(d)) s.lidl += 3;
+    if (/^0104067534/.test(d)) s.lidl += 3; // neuere Lidl-Geschenkkarten (10 €, 20 €)
   }
   // per Texterkennung gelesene Klartext-Nummer (kann Lesefehler enthalten)
   for (const b of pseudo) {
     // 20-stellig in 5 Vierergruppen gedruckt: Helaba-Gutschein (ALDI); nur schwacher Hinweis
     if (/^\d{20}$/.test(b.text)) s.aldi += 0.5;
+    if (/^01\d{16}$/.test(b.text)) s.lidl += 1; // 18-stellig, beginnt mit 01: neuere Lidl-Karten
     if (/4041578\d{6}21\d{10,}/.test(b.text)) s.edeka += 4;
     if (/9071\d{18,}/.test(b.text)) s.dm += 2;
   }
@@ -205,8 +209,9 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
     }
     case 'aldi':
     case 'lidl': {
-      // GS1-Barcode: (01) GTIN + (90) 20-stellige Gutscheinnummer
-      const { m: g, ocr } = pick(/^01\d{14}90(\d{20})$|^(\d{20})$/);
+      // GS1-Barcode: (01) GTIN + (90) Gutscheinnummer = die Zahl unter dem Barcode.
+      // ALDI und ältere Lidl-Karten: 20-stellig, neuere Lidl-Karten (10 €/20 €): 18-stellig.
+      const { m: g, ocr } = pick(/^01\d{14}90(\d{16,22})$|^(\d{18}|\d{20})$/);
       const num = g ? g[1] || g[2] : '';
       f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutschein (Nummer unter dem Barcode)', num, true, ocr);
       f('pin', 'PIN', pin, true);
