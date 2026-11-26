@@ -542,6 +542,13 @@ export async function processImage(source) {
   return r.res;
 }
 
+// lange Ziffernfolgen in Vierergruppen anzeigen (Kopieren nimmt die Leerzeichen wieder raus)
+const groupDigits = (v) => (/^\d{9,}$/.test(v) ? v.replace(/(\d{4})(?=\d)/g, '$1 ') : v);
+function fitHeight(t) {
+  t.style.height = 'auto';
+  t.style.height = t.scrollHeight + 2 + 'px';
+}
+
 function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone = false } = {}) {
   const b = res.brand && Object.hasOwn(BRANDS, res.brand) ? BRANDS[res.brand] : null;
   const r = els.result;
@@ -563,12 +570,18 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Bitte mit Karte vergleichen' }));
     row.append(cap);
     const wrap = document.createElement('div');
-    const inp = document.createElement('input');
-    inp.value = f.value;
+    // mehrzeiliges Feld: lange Nummern brechen um statt abgeschnitten zu werden
+    const inp = document.createElement('textarea');
+    inp.rows = 1;
+    inp.value = groupDigits(f.value);
     inp.placeholder = 'nicht erkannt – bitte eintragen';
     inp.autocomplete = 'off';
     inp.spellcheck = false;
+    inp.inputMode = /^\d*$/.test(f.value) ? 'numeric' : 'text';
     inp.dataset.key = f.key;
+    inp.onkeydown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
+    inp.oninput = () => fitHeight(inp);
+    requestAnimationFrame(() => fitHeight(inp));
     if (!f.value) row.classList.add('missing');
     else if (f.unsure) row.classList.add('unsure');
     const copy = document.createElement('button');

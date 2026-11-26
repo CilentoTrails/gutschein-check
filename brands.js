@@ -26,6 +26,9 @@ export const BRANDS = {
     name: 'Lidl',
     color: '#0050aa',
     url: 'https://www.lidl.de/c/lidl-geschenkkarten/s10007775',
+    where: {
+      card: 'Zahl direkt unter dem Barcode (20-stellig).',
+    },
   },
   rewe: {
     name: 'REWE',
@@ -183,7 +186,7 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       // GS1-Barcode: (01) GTIN + (90) 20-stellige Gutscheinnummer
       const { m: g, ocr } = pick(/^01\d{14}90(\d{20})$|^(\d{20})$/);
       const num = g ? g[1] || g[2] : '';
-      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer', num, true, ocr);
+      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer (unter dem Barcode)', num, true, ocr);
       f('pin', 'PIN', pin, true);
       break;
     }
