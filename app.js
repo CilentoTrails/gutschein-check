@@ -1051,11 +1051,13 @@ const waDialog = $('#wa-dialog');
 $('#btn-wa').onclick = () => {
   const box = $('#wa-qr');
   if (!box.firstChild) {
-    const qr = qrcode(0, 'M');
+    // höchste Fehlerkorrektur (H), damit das WhatsApp-Zeichen in der Mitte den Code nicht unlesbar macht
+    const qr = qrcode(0, 'H');
     qr.addData(WA_GROUP);
     qr.make();
     box.href = WA_GROUP;
     box.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+    box.insertAdjacentHTML('beforeend', '<span class="wa-qr-logo" aria-hidden="true">' + document.querySelector('.wa-logo').innerHTML + '</span>');
   }
   if (waDialog.showModal) waDialog.showModal();
   else waDialog.setAttribute('open', '');

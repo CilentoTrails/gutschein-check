@@ -212,7 +212,7 @@ pre { white-space: pre-wrap; word-break: break-word; }
 #wa-dialog .wa-sub { margin: 2px 0 14px; color: #6b7280; font-size: .85rem; text-align: center; }
 /* PC: QR-Code links, Sprachen rechts; Handy: untereinander */
 .wa-body { display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: center; }
-#wa-qr { display: block; width: 240px; }
+#wa-qr { display: block; width: 240px; position: relative; }
 #wa-qr svg { display: block; width: 100%; height: auto; }
 .wa-langs { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: .9rem; line-height: 1.35; }
 .wa-langs li { display: flex; gap: 8px; align-items: baseline; }
@@ -243,3 +243,13 @@ pre { white-space: pre-wrap; word-break: break-word; }
   background: transparent; color: var(--accent); border: 1.5px solid var(--accent);
   font-size: .82rem; border-radius: 10px;
 }
+
+/* WhatsApp-Zeichen: grüner Kreis über dem Titel und in der Mitte des QR-Codes */
+.wa-logo, .wa-qr-logo { display: grid; place-items: center; border-radius: 50%; background: #25d366; }
+.wa-logo { width: 52px; height: 52px; margin: 0 auto 8px; }
+.wa-logo svg { width: 32px; height: 32px; }
+.wa-qr-logo {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 20%; aspect-ratio: 1; box-shadow: 0 0 0 4px #fff;
+}
+.wa-qr-logo svg { width: 64%; height: 64%; }
