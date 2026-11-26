@@ -88,3 +88,19 @@ video { display: block; width: 100%; height: auto; }
 .field strong { color: var(--warn); font-weight: 600; font-size: .75rem; margin-left: 6px; }
 details { font-size: .8rem; color: var(--muted); }
 pre { white-space: pre-wrap; word-break: break-word; }
+
+.pair-btn { width: 100%; margin-bottom: 16px; }
+#pair {
+  margin-bottom: 16px; padding: 16px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  display: grid; gap: 10px; justify-items: center; text-align: center;
+}
+#pair-qr { width: min(280px, 100%); background: #fff; padding: 8px; border-radius: 10px; }
+#pair-qr svg { display: block; width: 100%; height: auto; }
+#pair p { margin: 0; }
+#pair button { width: 100%; }
+#pair-note {
+  padding: 10px 14px; border-radius: 10px; margin: 0 0 16px;
+  background: var(--card); border: 1px solid var(--accent);
+}
+#pair-note.warn { border-color: var(--warn); color: var(--warn); }

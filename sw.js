@@ -1,6 +1,6 @@
 // Speichert die großen Bibliotheken (OCR ~7 MB) nach dem ersten Laden,
 // damit die App danach schnell startet. App-Dateien: zuerst Netz, dann Cache.
-const CACHE = 'gc-v2';
+const CACHE = 'gc-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) =>

@@ -29,6 +29,16 @@
       </label>
     </div>
 
+    <button id="btn-pair" type="button" class="secondary pair-btn">Handy als Kamera verbinden (QR-Code)</button>
+    <p id="pair-note" role="status" hidden></p>
+
+    <section id="pair" hidden>
+      <div id="pair-qr" hidden></div>
+      <p id="pair-state"></p>
+      <p class="hint">Das Handy erkennt die Karte selbst und schickt nur das Ergebnis direkt und verschlüsselt an diesen Rechner.</p>
+      <button id="btn-pair-stop" type="button" class="secondary">Verbindung beenden</button>
+    </section>
+
     <section id="stage" hidden>
       <div class="viewport">
         <video id="video" playsinline muted></video>
@@ -45,12 +55,14 @@
     <section id="result" hidden></section>
 
     <footer>
-      Alles läuft nur auf deinem Gerät. Fotos und Kartendaten werden nicht hochgeladen.
+      Alles läuft nur auf deinem Gerät. Fotos und Kartendaten werden nicht hochgeladen. Beim Koppeln mit dem Handy gehen nur die erkannten Felder direkt und verschlüsselt an den Rechner.
     </footer>
   </main>
 
   <script src="vendor/zxing/zxing-reader.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
+  <script src="vendor/peerjs/peerjs.min.js"></script>
+  <script src="vendor/qrcode/qrcode.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
