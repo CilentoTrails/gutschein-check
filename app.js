@@ -746,9 +746,10 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     r.append(row);
   }
 
-  if (b && !guest) {
+  if (b) {
+    // am Handy klein (selten gebraucht), „Nächste Karte“ bleibt der Hauptknopf
     const a = document.createElement('a');
-    a.className = 'cta';
+    a.className = guest ? 'cta cta-small' : 'cta';
     a.href = b.url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';

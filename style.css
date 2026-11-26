@@ -127,7 +127,7 @@ pre { white-space: pre-wrap; word-break: break-word; }
 .mode-desk .phone-only, .mode-desk #stage { display: none !important; }
 .mode-phone .desk-only { display: none !important; }
 .mode-phone main { padding-top: 12px; }
-.mode-phone h1 { font-size: 1.6rem; margin-bottom: 8px; }
+.mode-phone h1 { font-size: 1.6rem; margin-bottom: 14px; }
 .mode-phone #pair-note { margin-bottom: 10px; }
 .mode-phone .actions { margin: 10px 0; }
 .mode-phone footer { margin-top: 16px; }
@@ -201,7 +201,7 @@ pre { white-space: pre-wrap; word-break: break-word; }
 }
 .wa-btn svg { width: 20px; height: 20px; flex: none; }
 /* Handy: nicht fest (würde die Knöpfe unten verdecken), sondern ganz unten auf der Seite */
-.mode-phone .wa-btn { position: static; display: flex; margin: 24px 0 0 auto; box-shadow: none; }
+.mode-phone .wa-btn { position: static; display: flex; margin: 32px auto 0; box-shadow: none; } /* mittig */
 #wa-dialog {
   width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
   padding: 20px; border: 0; border-radius: 16px;
@@ -232,3 +232,14 @@ pre { white-space: pre-wrap; word-break: break-word; }
 
 /* Handy: „QR-Code neu scannen“, nur wenn die Verbindung hängt */
 .rescan { width: 100%; margin: -6px 0 14px; }
+
+/* Handy: kleinere Kopieren-Knöpfe und kleiner Prüf-Link; „Nächste Karte“ bleibt groß */
+.mode-phone .field button {
+  min-height: 36px; padding: 0 10px; font-size: .75rem; border-radius: 9px;
+  background: transparent; color: var(--accent); border: 1.5px solid var(--accent); /* nur umrandet */
+}
+.cta-small {
+  min-height: 36px; padding: 0 12px; align-self: center; justify-self: center;
+  background: transparent; color: var(--accent); border: 1.5px solid var(--accent);
+  font-size: .82rem; border-radius: 10px;
+}
