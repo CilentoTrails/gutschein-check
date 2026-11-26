@@ -1,6 +1,6 @@
 # Gutschein-Check
 
-Web-App (PWA) zum Auslesen von Geschenkkarten per Kamera. Sie erkennt Marke, Kartennummer und PIN/Code und verlinkt die passende Guthaben-Prüfseite.
+Web-App (PWA) zum Auslesen von Geschenkkarten. Am Rechner zeigt sie einen QR-Code. Das Handy scannt ihn, liest die Karte mit seiner Kamera und schickt Marke, Kartennummer und PIN an den Rechner. Dort wird kopiert und die passende Guthaben-Prüfseite verlinkt.
 
 - läuft komplett im Browser, ohne Server, ohne KI-Tokens, ohne laufende Kosten
 - Fotos und Kartendaten verlassen das Gerät nicht
@@ -26,11 +26,11 @@ Barcode-Werte sind exakt. PIN und Code kommen aus der Texterkennung (oft auf Hol
 4. **PIN an der bekannten Stelle** lesen: ALDI im Hologramm-Feld rechts oberhalb des Barcodes, EDEKA auf dem Silberstreifen oben links. Sonst über die Beschriftung („Code“, „PIN“).
 5. **Kamera-Modus**: Nach einem Treffer sammelt die App noch ca. 0,7 s Bilder und wertet das schärfste aus. Fehlt etwas oder ist etwas unsicher, versucht sie es mit bis zu 3 Bildern und führt die Ergebnisse zusammen.
 
-Tipp: Karte so nah halten, dass sie den Rahmen fast füllt. Laptop-Webcams (oft 720p, Fixfokus) liefern bei kleinen Karten zu wenig Schärfe. Mit der Handykamera geht es meist deutlich besser.
+Tipp: Karte so nah halten, dass sie den Rahmen fast füllt. Die Webcam am Rechner wird bewusst nicht genutzt, sie ist für die kleinen Ziffern meist zu unscharf.
 
 ## Handy als Kamera (QR-Code)
 
-Am Rechner „Handy als Kamera verbinden“ wählen und den QR-Code mit dem Handy scannen. Das Handy erkennt die Karte selbst. Nur das Ergebnis (Marke, Nummer, PIN, Rohtext) geht direkt an den Rechner, dort wird kopiert.
+Die Seite am Rechner öffnen, der QR-Code erscheint sofort. Ihn mit dem Handy scannen. Das Handy erkennt die Karte selbst. Nur das Ergebnis (Marke, Nummer, PIN, Rohtext) geht direkt an den Rechner, dort wird kopiert.
 
 - Verbindung per WebRTC über [PeerJS](https://peerjs.com/docs/). Die Daten sind Ende-zu-Ende verschlüsselt (DTLS). Der kostenlose PeerJS-Vermittlungsserver sieht nur die zufällige Verbindungs-ID. Klappt keine Direktverbindung, etwa bei Mobilfunk oder strengem NAT, leitet der öffentliche PeerJS-TURN-Server die weiterhin verschlüsselten Daten weiter.
 - Die ID ist eine zufällige UUID, gilt nur für diese Sitzung, und es kann sich nur ein Handy gleichzeitig verbinden. Empfangene Daten werden nur als Text angezeigt.
