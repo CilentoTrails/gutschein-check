@@ -163,14 +163,14 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       // Die 24-stellige Nummer steht exakt im Barcode -> bevorzugt; die 8 Zeichen nur als Ersatz.
       // 24-stellig, beginnt mit 90 (z. B. 9071 …, neuere Karten ohne 8-stellige Nummer: 9051 …)
       const long = pick(/^(90\d{22})$/, /(90\d{22})/);
-      if (long.m) f('card24', 'Kartennummer (24-stellig)', long.m[1], true, long.ocr);
+      if (long.m) f('card24', 'Kartennummer', long.m[1], true, long.ocr);
       if (!long.m || long.ocr) {
         const cands = lines
           .map((l) => ({ m: l.text.match(/kartennummer\s*:?\s*([A-Z0-9]{4})\s?([A-Z0-9]{4})\b/i), conf: l.conf }))
           .filter((x) => x.m)
           .sort((a, b) => b.conf - a.conf);
         const m = cands[0]?.m;
-        f('card8', long.m ? 'Alternative: Kartennummer (8 Zeichen)' : 'Kartennummer (8 Zeichen)', m ? `${m[1]}${m[2]}`.toUpperCase() : '', !long.m, true);
+        f('card8', long.m ? 'Kartennummer (kurz)' : 'Kartennummer', m ? `${m[1]}${m[2]}`.toUpperCase() : '', !long.m, true);
       }
       f('pin', 'Code', pin, true);
       break;
@@ -197,7 +197,7 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       // ALDI und ältere Lidl-Karten: 20-stellig, neuere Lidl-Karten (10 €/20 €): 18-stellig.
       const { m: g, ocr } = pick(/^01\d{14}90(\d{16,22})$|^(\d{18}|\d{20})$/);
       const num = g ? g[1] || g[2] : '';
-      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutschein (Nummer unter dem Barcode)', num, true, ocr);
+      f('card', 'Gutscheinnummer', num, true, ocr);
       f('pin', 'PIN', pin, true);
       break;
     }
@@ -215,8 +215,8 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
     }
     default: {
       const long = bc.find((b) => b.d.length >= 10);
-      f('barcode', 'Barcode-Nummer', long ? long.d : '', true, long?.ocr);
-      f('pin', 'PIN/Code', pin, true);
+      f('barcode', 'Nummer', long ? long.d : '', true, long?.ocr);
+      f('pin', 'PIN', pin, true);
     }
   }
   return { brand, scores, fields };
