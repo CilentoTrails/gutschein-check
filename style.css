@@ -190,3 +190,36 @@ pre { white-space: pre-wrap; word-break: break-word; }
   .howto-big { grid-template-columns: 1fr; gap: 6px; }
   .howto-grid { grid-template-columns: 1fr; }
 }
+
+/* WhatsApp-Gruppe */
+.wa-row { margin: 24px 0 0; text-align: right; }
+.wa-link {
+  min-height: 0; padding: 2px 0; background: none; border: 0; cursor: pointer;
+  color: var(--muted); font-size: .78rem; font-weight: 500; text-decoration: underline; text-underline-offset: 3px;
+}
+#wa-dialog {
+  width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
+  padding: 20px; border: 0; border-radius: 16px;
+  background: #fff; color: #1a1d1a; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+#wa-dialog::backdrop { background: rgba(0,0,0,.45); }
+#wa-dialog h2 { margin: 0; font-size: 1.15rem; text-align: center; }
+#wa-dialog .wa-sub { margin: 2px 0 14px; color: #6b7280; font-size: .85rem; text-align: center; }
+/* PC: QR-Code links, Sprachen rechts; Handy: untereinander */
+.wa-body { display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: center; }
+#wa-qr { display: block; width: 240px; }
+#wa-qr svg { display: block; width: 100%; height: auto; }
+.wa-langs { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: .9rem; line-height: 1.35; }
+.wa-langs li { display: flex; gap: 8px; align-items: baseline; }
+.wa-langs span {
+  flex: 0 0 auto; min-width: 26px; padding: 1px 4px; border-radius: 4px;
+  background: #f1f1f1; color: #6b7280; font-size: .68rem; font-weight: 700; text-align: center;
+}
+.wa-langs li[dir="rtl"] { font-size: 1rem; }
+#wa-dialog form { margin: 16px 0 0; }
+#wa-dialog form button { width: 100%; color: #1a1d1a; border-color: #dfe3de; }
+@media (max-width: 600px) {
+  #wa-dialog { padding: 16px; }
+  .wa-body { grid-template-columns: 1fr; gap: 14px; }
+  #wa-qr { width: min(220px, 62vw); margin: 0 auto; }
+}

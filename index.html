@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gutschein-Check">
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
   <main>
@@ -59,12 +59,33 @@
       <li>Rubbel das PIN-Feld auf der Karte gut frei.</li>
       <li>Für eine stabile Verbindung am besten Handy und Laptop im gleichen WLAN einloggen.</li>
     </ul>
+
+    <!-- kleiner Link unten rechts: WhatsApp-Gruppe für Geflüchtete -->
+    <p class="wa-row"><button id="btn-wa" type="button" class="wa-link">WhatsApp-Gruppe für Geflüchtete</button></p>
+    <dialog id="wa-dialog" aria-labelledby="wa-title">
+      <h2 id="wa-title">Karten-Tausch von OFFEN</h2>
+      <p class="wa-sub">WhatsApp-Gruppe</p>
+      <div class="wa-body">
+        <a id="wa-qr" target="_blank" rel="noopener noreferrer" aria-label="Gruppe in WhatsApp öffnen"></a>
+        <ul class="wa-langs">
+          <li lang="de"><span>DE</span>Hier gibt es immer alle aktuellen Infos zu den Gutschein-Tauschstellen.</li>
+          <li lang="en"><span>EN</span>Here you’ll always find the latest information on the voucher exchange points.</li>
+          <li lang="ar" dir="rtl"><span>AR</span>هنا تجد دائمًا أحدث المعلومات عن أماكن تبادل القسائم.</li>
+          <li lang="fa" dir="rtl"><span>FA</span>اینجا همیشه تازه‌ترین اطلاعات درباره محل‌های تعویض کارت هدیه را پیدا می‌کنید.</li>
+          <li lang="fr"><span>FR</span>Ici, toujours toutes les dernières infos sur les points d’échange de bons d’achat.</li>
+          <li lang="tr"><span>TR</span>Hediye çeki değişim noktalarıyla ilgili en güncel bilgiler her zaman burada.</li>
+          <li lang="ru"><span>RU</span>Здесь всегда самая актуальная информация о пунктах обмена подарочных карт.</li>
+          <li lang="uk"><span>UK</span>Тут завжди найактуальніша інформація про пункти обміну подарункових карток.</li>
+        </ul>
+      </div>
+      <form method="dialog"><button type="submit" class="secondary">Schließen / Close</button></form>
+    </dialog>
   </main>
 
   <script src="vendor/zxing/zxing-reader.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="vendor/peerjs/peerjs.min.js"></script>
   <script src="vendor/qrcode/qrcode.js"></script>
-  <script type="module" src="app.js?v=24"></script>
+  <script type="module" src="app.js?v=26"></script>
 </body>
 </html>
