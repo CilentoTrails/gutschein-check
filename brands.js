@@ -8,29 +8,16 @@ export const BRANDS = {
     name: 'dm',
     color: '#1b3d8f',
     url: 'https://www.dm.de/services/services-im-markt/geschenkkarten-3480686#abfrage-guthaben',
-    where: {
-      card24: '24-stellige Zahl direkt unter dem Barcode (beginnt mit 90).',
-      card8: 'Hinter „Kartennummer:“, 8 Zeichen (Buchstaben und Ziffern).',
-      pin: '4-stellig hinter „Code:“ im Hologramm-Feld rechts oberhalb des Barcodes.',
-    },
   },
   aldi: {
-    name: 'ALDI (Helaba)',
+    name: 'ALDI',
     color: '#00549f',
     url: 'https://www.helaba.com/de/aldi',
-    where: {
-      pin: '4-stellig im silbernen Hologramm-Feld rechts oberhalb des Barcodes (Höhe „Seriennr.“).',
-      card: '20-stellige Zahl direkt unter dem Barcode (5 Vierergruppen).',
-    },
   },
   lidl: {
     name: 'Lidl',
     color: '#0050aa',
-    url: 'https://www.lidl.de/c/lidl-geschenkkarten/s10007775',
-    where: {
-      card: 'Zahl direkt unter dem Barcode (18- oder 20-stellig, ohne die kurze Zahl ganz rechts).',
-      pin: '4-stellig im silbernen Hologramm-Feld rechts oberhalb des Barcodes.',
-    },
+    url: 'https://www.lidl.de/c/lidl-geschenkkarten',
   },
   rewe: {
     name: 'REWE',
@@ -41,11 +28,6 @@ export const BRANDS = {
     name: 'EDEKA',
     color: '#1e4fa0',
     url: 'https://evci.pin-host.com/evci/#/guthabenabfrage',
-    where: {
-      pin: '4-stellig auf dem Silberstreifen oben links.',
-      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“ bis vor „21“ (z. B. 9 023 09).',
-      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“ (bis zum Ende).',
-    },
   },
 };
 
