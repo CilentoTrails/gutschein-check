@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Gutschein-Check">
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
   <main>
@@ -22,6 +22,8 @@
 
     <!-- Handy: Status der Verbindung -->
     <p id="pair-note" class="phone-only" role="status" hidden></p>
+    <!-- nur wenn die Verbindung hängt: QR-Code am Rechner neu scannen (mit der Kamera dieser Seite) -->
+    <button id="btn-rescan" type="button" class="secondary phone-only rescan" hidden>QR-Code neu scannen</button>
 
     <!-- Ergebnis: das Wichtigste, deshalb ganz oben -->
     <section id="result" hidden></section>
@@ -61,7 +63,10 @@
     </ul>
 
     <!-- kleiner Link unten rechts: WhatsApp-Gruppe für Geflüchtete -->
-    <p class="wa-row"><button id="btn-wa" type="button" class="wa-link">WhatsApp-Gruppe für Geflüchtete</button></p>
+    <button id="btn-wa" type="button" class="wa-btn">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M16 3a13 13 0 0 0-11.2 19.6L3 29l6.6-1.7A13 13 0 1 0 16 3zm0 23.6a10.6 10.6 0 0 1-5.4-1.5l-.4-.2-3.9 1 1-3.8-.2-.4A10.6 10.6 0 1 1 16 26.6zm5.8-7.9c-.3-.2-1.9-.9-2.2-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1a8.7 8.7 0 0 1-4.3-3.8c-.3-.6.3-.5.9-1.7.1-.2 0-.4 0-.5l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.7 3.7 0 0 0-1.1 2.7 6.4 6.4 0 0 0 1.3 3.4 14.6 14.6 0 0 0 5.6 5c2.1.9 2.9 1 4 .8a3.4 3.4 0 0 0 2.2-1.6 2.8 2.8 0 0 0 .2-1.6c-.1-.1-.3-.2-.6-.3z"/></svg>
+      <span>WhatsApp-Infogruppe für Geflüchtete</span>
+    </button>
     <dialog id="wa-dialog" aria-labelledby="wa-title">
       <h2 id="wa-title">Karten-Tausch von OFFEN</h2>
       <p class="wa-sub">WhatsApp-Gruppe</p>
@@ -86,6 +91,6 @@
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="vendor/peerjs/peerjs.min.js"></script>
   <script src="vendor/qrcode/qrcode.js"></script>
-  <script type="module" src="app.js?v=26"></script>
+  <script type="module" src="app.js?v=29"></script>
 </body>
 </html>
