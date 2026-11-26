@@ -4,7 +4,7 @@
   --muted: #5f665f;
   --card: #ffffff;
   --line: #dfe3de;
-  --accent: #14532d;
+  --accent: #e6007e;
   --accent-fg: #ffffff;
   --warn: #b45309;
   color-scheme: light dark;
@@ -16,8 +16,8 @@
     --muted: #9aa39a;
     --card: #1b1f1b;
     --line: #2c322c;
-    --accent: #4ade80;
-    --accent-fg: #062b12;
+    --accent: #ff4fae;
+    --accent-fg: #2b0016;
     --warn: #f59e0b;
   }
 }
@@ -84,6 +84,7 @@ video { display: block; width: 100%; height: auto; }
 }
 .field button { flex: 0 0 auto; min-height: 44px; font-size: .85rem; }
 .field.missing input, .field.unsure input { border-color: var(--warn); }
+.field .where { font-size: .78rem; color: var(--muted); }
 .field strong { color: var(--warn); font-weight: 600; font-size: .75rem; margin-left: 6px; }
 details { font-size: .8rem; color: var(--muted); }
 pre { white-space: pre-wrap; word-break: break-word; }
