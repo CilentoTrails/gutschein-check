@@ -383,6 +383,12 @@ function voteTemplate(reads, tpl) {
 // Ziffernzeile in einem Ausschnitt finden, eng zuschneiden und mehrfach nur mit Ziffern lesen.
 async function readDigitRow(crop, minChars, templates = [], box = findTextRow(crop, { minChars, extend: minChars >= 8 })) {
   if (!box) return null;
+  // PIN: eng zuschneiden. Ein dunkler Hologramm-Rand direkt über/neben den Ziffern lässt
+  // Tesseract sonst z. B. 9 als 5 lesen (9959 -> 5959); der weiße Rand kommt in cutBox dazu.
+  if (minChars <= 4) {
+    const dy = box.charH * 0.3, dx = box.charH * 0.55;
+    box = { ...box, x: box.x + dx, y: box.y + dy, w: Math.max(box.charH, box.w - 2 * dx), h: Math.max(box.charH, box.h - 2 * dy) };
+  }
   const reads = [];
   const variants = [[36, 0, 0], [36, 0.5, 3], [48, 0, 0], [28, 0.3, 0], [44, 0.8, 0], [56, 0.4, 3]];
   for (const [h, sharpen, flat] of variants) {
