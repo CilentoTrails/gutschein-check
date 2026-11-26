@@ -1,6 +1,6 @@
 // Speichert die großen Bibliotheken (OCR ~7 MB) nach dem ersten Laden,
-// damit die App danach schnell startet. App-Dateien: zuerst Netz, dann Cache.
-const CACHE = 'gc-v9';
+// damit die App danach schnell startet. App-Dateien: immer frisch vom Netz (Cache nur offline).
+const CACHE = 'gc-v10';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) =>
@@ -22,7 +22,9 @@ self.addEventListener('fetch', (e) => {
         if (hit) return hit;
       }
       try {
-        const res = await fetch(e.request);
+        // App-Dateien immer beim Server nachfragen (no-cache = mit ETag prüfen, sonst kurz 304).
+        // Sonst mischt der Browser-Cache (GitHub Pages: bis 10 Minuten) alte und neue Dateien.
+        const res = vendor ? await fetch(e.request) : await fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' }));
         if (res.ok) cache.put(e.request, res.clone());
         return res;
       } catch {
