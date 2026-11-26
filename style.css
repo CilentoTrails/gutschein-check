@@ -191,12 +191,17 @@ pre { white-space: pre-wrap; word-break: break-word; }
   .howto-grid { grid-template-columns: 1fr; }
 }
 
-/* WhatsApp-Gruppe */
-.wa-row { margin: 24px 0 0; text-align: right; }
-.wa-link {
-  min-height: 0; padding: 2px 0; background: none; border: 0; cursor: pointer;
-  color: var(--muted); font-size: .78rem; font-weight: 500; text-decoration: underline; text-underline-offset: 3px;
+/* WhatsApp-Gruppe: kleiner pinker Knopf, am PC fest unten rechts in der Ecke */
+.wa-btn {
+  position: fixed; right: 20px; bottom: 20px; z-index: 30;
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  min-height: 0; padding: 9px 14px 9px 11px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg);
+  font-size: .82rem; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.18);
 }
+.wa-btn svg { width: 20px; height: 20px; flex: none; }
+/* Handy: nicht fest (würde die Knöpfe unten verdecken), sondern ganz unten auf der Seite */
+.mode-phone .wa-btn { position: static; display: flex; margin: 24px 0 0 auto; box-shadow: none; }
 #wa-dialog {
   width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
   padding: 20px; border: 0; border-radius: 16px;
@@ -223,3 +228,4 @@ pre { white-space: pre-wrap; word-break: break-word; }
   .wa-body { grid-template-columns: 1fr; gap: 14px; }
   #wa-qr { width: min(220px, 62vw); margin: 0 auto; }
 }
+.mode-desk main { padding-bottom: 90px; } /* Platz für den festen WhatsApp-Knopf */
