@@ -9,8 +9,9 @@ export const BRANDS = {
     color: '#1b3d8f',
     url: 'https://www.dm.de/services/services-im-markt/geschenkkarten-3480686#abfrage-guthaben',
     where: {
-      card: 'Hinter „Kartennummer:“, 8 Zeichen (Buchstaben und Ziffern).',
-      pin: 'Hinter „Code:“, 4 Zeichen.',
+      card24: '24-stellige Zahl direkt unter dem Barcode (beginnt mit 9071).',
+      card8: 'Hinter „Kartennummer:“, 8 Zeichen (Buchstaben und Ziffern).',
+      pin: '4-stellig hinter „Code:“ im Hologramm-Feld rechts oberhalb des Barcodes.',
     },
   },
   aldi: {
@@ -42,8 +43,8 @@ export const BRANDS = {
     url: 'https://evci.pin-host.com/evci/#/guthabenabfrage',
     where: {
       pin: '4-stellig auf dem Silberstreifen oben links.',
-      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“.',
-      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“.',
+      part1: 'Zahlenreihe unter dem Barcode: die 6 Ziffern nach „010 4041578“ (vor „21“).',
+      part2: 'Zahlenreihe unter dem Barcode: die 14 Ziffern nach „21“ (bis zum Ende).',
     },
   },
 };
@@ -59,6 +60,15 @@ const toDigits = (s) =>
     .replace(/[B]/g, '8')
     .replace(/[zZ]/g, '2')
     .replace(/\D/g, '');
+
+// GS1-Prüfziffer (GTIN, Modulo 10, Gewichte 3/1 von rechts)
+export function gs1Valid(code) {
+  if (!/^\d{8,18}$/.test(code)) return false;
+  const d = code.split('').map(Number);
+  const check = d.pop();
+  const sum = d.reverse().reduce((s, x, i) => s + x * (i % 2 ? 1 : 3), 0);
+  return (10 - (sum % 10)) % 10 === check;
+}
 
 const group = (s, n = 4) => s.replace(new RegExp(`(.{${n}})(?=.)`, 'g'), '$1 ');
 
@@ -79,7 +89,7 @@ function scoreBrands(text, barcodes, pseudo = []) {
 
   for (const b of barcodes) {
     const d = digits(b.text);
-    if (/^9071\d{16}$/.test(d)) s.dm += 4;
+    if (/^9071\d{20}$/.test(d)) s.dm += 4;
     if (/^0104041578\d{6}21\d{14}$/.test(d)) s.edeka += 5;
     if (/aztec/i.test(b.format)) s.rewe += 2;
     if (/^0104053868100364/.test(d)) s.aldi += 3;
@@ -163,23 +173,34 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
 
   switch (brand) {
     case 'dm': {
-      // alle Lesungen der Zeile prüfen, die mit der höchsten Sicherheit gewinnt
-      const cands = lines
-        .map((l) => ({ m: l.text.match(/kartennummer\s*:?\s*([A-Z0-9]{4})\s?([A-Z0-9]{4})\b/i), conf: l.conf }))
-        .filter((x) => x.m)
-        .sort((a, b) => b.conf - a.conf);
-      const m = cands[0]?.m;
-      f('card', 'Kartennummer (8 Zeichen)', m ? `${m[1]}${m[2]}`.toUpperCase() : '', true);
-      f('pin', 'Code', pin, true);
+      // Prüfseite: „8- oder 24-stellige Kartennummer“, dann „Code“.
+      // Die 24-stellige Nummer steht exakt im Barcode -> bevorzugt; die 8 Zeichen nur als Ersatz.
       const long = pick(/^(9071\d{20})$/, /(9071\d{20})/);
-      if (long.m) f('card24', 'Alternative: 24-stellige Nummer (Barcode)', long.m[1], false, long.ocr);
+      if (long.m) f('card24', 'Kartennummer (24-stellig)', long.m[1], true, long.ocr);
+      if (!long.m || long.ocr) {
+        const cands = lines
+          .map((l) => ({ m: l.text.match(/kartennummer\s*:?\s*([A-Z0-9]{4})\s?([A-Z0-9]{4})\b/i), conf: l.conf }))
+          .filter((x) => x.m)
+          .sort((a, b) => b.conf - a.conf);
+        const m = cands[0]?.m;
+        f('card8', long.m ? 'Alternative: Kartennummer (8 Zeichen)' : 'Kartennummer (8 Zeichen)', m ? `${m[1]}${m[2]}`.toUpperCase() : '', !long.m, true);
+      }
+      f('pin', 'Code', pin, true);
       break;
     }
     case 'edeka': {
-      const { m: g, ocr } = pick(/^0104041578(\d{6})21(\d{14})$/, /4041578(\d{6})21(\d{14})/);
-      f('part1', 'Kartennummer – kurzes Feld (nach 010 4041578)', g ? g[1] : '', true, ocr);
-      f('part2', 'Kartennummer – langes Feld (nach 21)', g ? g[2] : '', true, ocr);
+      // Reihenfolge wie auf der Prüfseite: PIN-Code, dann Kartennummer Feld 1 und Feld 2.
+      // Feld 1 = letzte 6 Ziffern der GTIN (04041578……) und endet mit einer GS1-Prüfziffer:
+      // damit lassen sich Lesefehler erkennen und unter mehreren Lesungen die richtige wählen.
+      const cands = bc
+        .map((b) => ({ b, m: b.d.match(b.ocr ? /4041578(\d{6})21(\d{14})/ : /^0104041578(\d{6})21(\d{14})$/) }))
+        .filter((x) => x.m);
+      const exact = cands.find((x) => !x.b.ocr);
+      const main = exact || cands[0];
+      const valid = exact || cands.find((x) => gs1Valid('04041578' + x.m[1]));
       f('pin', 'PIN-Code', pin, true);
+      f('part1', 'Kartennummer – Feld 1 (6 Ziffern nach „010 4041578“)', (valid || main)?.m[1], true, !valid);
+      f('part2', 'Kartennummer – Feld 2 (14 Ziffern nach „21“)', main?.m[2], true, !exact && !(main?.b.conf >= 92));
       break;
     }
     case 'aldi':
@@ -187,7 +208,7 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       // GS1-Barcode: (01) GTIN + (90) 20-stellige Gutscheinnummer
       const { m: g, ocr } = pick(/^01\d{14}90(\d{20})$|^(\d{20})$/);
       const num = g ? g[1] || g[2] : '';
-      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer (unter dem Barcode)', num, true, ocr);
+      f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutschein (Nummer unter dem Barcode)', num, true, ocr);
       f('pin', 'PIN', pin, true);
       break;
     }

@@ -235,6 +235,41 @@ async function rereadPin(canvas, allLines, pin) {
   return best;
 }
 
+// dm-Kartennummer (8 Zeichen, Buchstaben und Ziffern) hinter „Kartennummer:“ mehrfach lesen (nur als
+// Ersatz, wenn der Barcode mit der 24-stelligen Nummer nicht lesbar war).
+const DM_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+async function rereadDmCard(img, lines, first) {
+  const line = lines.find((l) => /kartennumm/i.test(l.text) && l.words?.length);
+  if (!line) return null;
+  const i = line.words.findIndex((w) => /kartennumm/i.test(w.text));
+  const vals = line.words.slice(i + 1).filter((w) => /[a-z0-9]/i.test(w.text)).slice(0, 2);
+  if (!vals.length) return null;
+  const bb = {
+    x0: Math.min(...vals.map((w) => w.bbox.x0)), y0: Math.min(...vals.map((w) => w.bbox.y0)),
+    x1: Math.max(...vals.map((w) => w.bbox.x1)), y1: Math.max(...vals.map((w) => w.bbox.y1)),
+  };
+  const reads = [];
+  if (/^[A-Z0-9]{8}$/.test(first || '')) reads.push({ t: first, conf: 50 });
+  for (const [mode, h] of [['stretch', 60], ['otsu', 60], ['stretch', 90], ['otsu', 45], ['stretch', 40]]) {
+    const r = await ocrLines(cropWord(img, bb, mode, h), { tessedit_pageseg_mode: '7', tessedit_char_whitelist: DM_CHARS + ' ' });
+    const t = r.map((x) => x.text).join('').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (t.length === 8) reads.push({ t, conf: r.reduce((a, x) => a + x.conf, 0) / r.length });
+  }
+  if (!reads.length) return null;
+  let value = '';
+  let agree = true;
+  for (let k = 0; k < 8; k++) {
+    const votes = {};
+    for (const r of reads) votes[r.t[k]] = (votes[r.t[k]] || 0) + r.conf + 1;
+    const ranked = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+    value += ranked[0][0];
+    if (ranked.length > 1) agree = false;
+  }
+  // Auch bei voller Übereinstimmung unsicher: das Sprachmodell liest z. B. „WLV8“ durchgehend als „WLVS“.
+  // Deshalb nutzt die App bei dm bevorzugt die 24-stellige Nummer aus dem Barcode.
+  return { value, unsure: true, agree };
+}
+
 // Zusatzdurchgang nur für Ziffern (für PINs ohne Beschriftung, z. B. auf Hologrammen)
 function digitPass(canvas) {
   return ocrLines(canvas, { tessedit_pageseg_mode: '11', tessedit_char_whitelist: '0123456789' });
@@ -297,7 +332,8 @@ function cardCrop(canvas, loc, flip) {
 // Bekannte Druckbilder der Klartext-Nummern (Zifferngruppen)
 const NUMBER_TEMPLATES = [
   [4, 4, 4, 4, 4], // ALDI/Lidl (Helaba): 20-stellige Gutscheinnummer
-  [3, 7, 1, 3, 2, 2, 4, 4, 4, 2], // EDEKA: 010 4041578 6 023 09 21 0860 … (GS1)
+  [3, 7, 1, 3, 2, 2, 4, 4, 4, 2], // EDEKA: 010 4041578 9 023 09 21 0860 … (GS1)
+  [4, 4, 4, 4, 4, 4], // dm: 24-stellige Kartennummer 9071 …
 ];
 
 // Mehrheitsentscheid je Stelle (gewichtet mit Sicherheit)
@@ -360,7 +396,7 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
   }
   if (best) {
     const conf = Math.min(99, best.conf);
-    return { text: best.text, conf, lines: [{ text: best.text, conf, words: [] }], score: 1000 + best.support };
+    return { text: best.text, conf, lines: [{ text: best.text, conf, words: [] }], score: 1000 + best.support, reads };
   }
   // 2. sonst: häufigste Länge, dann Mehrheit je Stelle
   const byLen = {};
@@ -371,7 +407,7 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
   let k = 0;
   const text = ref.text.replace(/\d/g, () => d[k++]);
   const conf = ref.conf * (group.length / reads.length);
-  return { text, conf, lines: [{ text, conf, words: [] }], score: Math.min(d.length, box.chars + 2) * conf };
+  return { text, conf, lines: [{ text, conf, words: [] }], score: Math.min(d.length, box.chars + 2) * conf, reads };
 }
 
 // Klartext-Nummer direkt unter dem Barcode (ALDI, Lidl, EDEKA, dm drucken sie dort)
@@ -380,7 +416,10 @@ async function readNumberBand(canvas, loc, flip) {
   const k = Math.max(1, Math.min(6, 160 / bh));
   const crop = cropAligned(canvas, loc, { dv: loc.T / 2 + bh / 2, bw: loc.L * 1.3, bh, k, flip });
   const r = await readDigitRow(crop, 8, NUMBER_TEMPLATES);
-  return r ? { lines: r.lines, score: r.score } : { lines: [], score: 0 };
+  if (!r) return { lines: [], score: 0 };
+  // Einzellesungen als Alternativen mitgeben (z. B. für die Prüfziffer bei EDEKA)
+  const alts = r.reads.filter((x) => x.text !== r.text).map((x) => ({ text: x.text, conf: 0, alt: true, words: [] }));
+  return { lines: [...r.lines, ...alts], score: r.score };
 }
 
 // Wo der PIN relativ zum Barcode sitzt (L = Barcode-Länge, T = Barcode-Höhe, Text aufrecht)
@@ -389,6 +428,8 @@ const PIN_LAYOUT = {
   aldi: (L, T) => ({ du: L * 0.47, dv: -T / 2 - L * 0.06, bw: L * 0.4, bh: L * 0.2 }),
   // Lidl: Hologramm-Feld über dem rechten Drittel des Barcodes, neben „Seriennr.“
   lidl: (L, T) => ({ du: L * 0.32, dv: -T / 2 - L * 0.09, bw: L * 0.4, bh: L * 0.18 }),
+  // dm: Code im Hologramm-Feld rechts oberhalb des Barcodes, hinter „Code:“
+  dm: (L, T) => ({ du: L * 0.56, dv: -T / 2 - L * 0.12, bw: L * 0.32, bh: L * 0.17 }),
   // EDEKA (A1 Bank): Silberstreifen oben links über dem Text
   edeka: (L) => ({ du: -L * 0.33, dv: -L * 0.42, bw: L * 0.65, bh: L * 0.26 }),
 };
@@ -504,12 +545,15 @@ export async function analyzeFrame(source, say = status) {
     pinField.value = r.value;
     pinField.unsure = r.conf < 85;
   }
-  // unsichere OCR-Felder markieren (Barcode-Werte sind exakt)
-  const words = lines.flatMap((l) => l.words || []);
-  for (const f of res.fields) {
-    if (f.key !== 'card' || res.brand !== 'dm' || !f.value) continue;
-    const parts = [f.value.slice(0, 4), f.value.slice(4)];
-    f.unsure = parts.some((p) => (words.find((w) => w.text.toUpperCase().includes(p))?.conf ?? 0) < 85);
+  // dm: Kartennummer (Buchstaben + Ziffern) gezielt mehrfach nachlesen; nur bei voller Übereinstimmung sicher
+  const dmCard = res.brand === 'dm' && res.fields.find((f) => f.key === 'card8');
+  if (dmCard) {
+    say('Prüfe Kartennummer …');
+    const r = await rereadDmCard(upright, lines, dmCard.value);
+    if (r) {
+      dmCard.value = r.value;
+      dmCard.unsure = r.unsure;
+    } else if (dmCard.value) dmCard.unsure = true;
   }
   return { res, lines, barcodes, numberLines, located: !!loc };
 }
@@ -646,7 +690,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
   const pre = document.createElement('pre');
   pre.textContent =
     (barcodes.length ? barcodes.map((x) => `[${x.format}] ${x.text}`).join('\n') + '\n\n' : `[kein Barcode lesbar${located ? ', Bereich gefunden' : ''}]\n\n`) +
-    (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.map((l) => l.text).join(' ') + '\n\n' : '') +
+    (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.filter((l) => !l.alt).map((l) => l.text).join(' ') + '\n\n' : '') +
     lines.map((l) => l.text).join('\n');
   dbg.append(pre);
   if (fromPhone || !guest) r.append(dbg);
