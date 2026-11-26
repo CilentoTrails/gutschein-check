@@ -43,6 +43,7 @@ Die Seite am Rechner öffnen, der QR-Code erscheint sofort. Ihn mit dem Handy sc
 - Barcode/Aztec: [zxing-wasm](https://github.com/Sec-ant/zxing-wasm) (zxing-cpp), Apache-2.0
 - Texterkennung: [Tesseract.js](https://github.com/naptha/tesseract.js) v5 mit `eng` (best_int), Apache-2.0
 - Kopplung: [PeerJS](https://github.com/peers/peerjs) 1.5.5, MIT; QR-Code: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4, MIT
+- Bei Änderungen an der App die Versionsnummer `?v=` in `index.html` und `CACHE` in `sw.js` erhöhen. Der Service Worker fragt App-Dateien immer frisch beim Server nach, damit Browser keine alten und neuen Dateien mischen.
 - Alle Bibliotheken liegen in `vendor/`, es gibt keine Abhängigkeit von CDNs. Beim ersten Laden kommen etwa 8 MB, danach liegen sie im Cache (Service Worker).
 - Logik: `brands.js` (Markenerkennung, Feld-Extraktion, Lage der Felder), `vision.js` (Barcode-Bereich, Zuschnitt, Ziffernzeilen, Schärfe), `pair.js` (Kopplung Handy ↔ Rechner), `app.js` (Kamera, Ablauf, UI)
 
