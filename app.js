@@ -956,14 +956,16 @@ function pairNote(text, warn = false, check = false) {
 }
 
 // Rechner: QR-Code zeigen und auf das Handy warten
-function startPairing() {
+function startPairing(fresh = false) {
   host?.stop();
   els.pairQr.innerHTML = '';
   els.pairQr.hidden = true;
   els.pairState.textContent = 'Verbindung wird vorbereitet …';
   host = startHost({
+    fresh,
     onState: (state, info) => {
       els.pair.classList.toggle('connected', state === 'connected');
+      deskWake(state === 'connected');
       if (state === 'waiting') {
         const qr = qrcode(0, 'M');
         qr.addData(info);
@@ -994,11 +996,27 @@ function startPairing() {
   });
 }
 
+// Rechner: Bildschirm wach halten, solange ein Handy verbunden ist (sonst geht der Laptop
+// in Pausen in den Ruhezustand und die Verbindung bricht ab)
+let deskLock = null;
+let deskWant = false;
+async function deskWake(on) {
+  deskWant = on;
+  if (!('wakeLock' in navigator)) return;
+  if (on && !deskLock && document.visibilityState === 'visible') {
+    try {
+      deskLock = await navigator.wakeLock.request('screen');
+      deskLock.addEventListener('release', () => { deskLock = null; });
+    } catch {}
+  } else if (!on && deskLock) deskLock.release().catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (deskWant && document.visibilityState === 'visible') deskWake(true); });
+
 // Rechner (Seite ohne Kopplungs-Code): sofort QR-Code zeigen.
 // Handy (über den QR-Link geöffnet): Karte scannen und Ergebnis an den Rechner schicken.
 const pairCode = pairCodeFromUrl();
 document.body.classList.add(pairCode ? 'mode-phone' : 'mode-desk');
-els.pairNew.onclick = startPairing;
+els.pairNew.onclick = () => startPairing(true);
 if (!pairCode) startPairing();
 else connectGuest(pairCode);
 

@@ -26,6 +26,8 @@ const ERRORS = {
   'socket-error': 'Verbindung wird wiederhergestellt …',
   'socket-closed': 'Verbindung wird wiederhergestellt …',
   'browser-incompatible': 'Dieser Browser kann keine Direktverbindung (WebRTC).',
+  // nach dem Neuladen am Rechner ist die alte Anmeldung kurz noch belegt: gleich noch einmal
+  'unavailable-id': 'Verbindung wird vorbereitet …',
 };
 const errText = (e) => ERRORS[e?.type] || 'Verbindung fehlgeschlagen (' + (e?.type || e) + ').';
 
@@ -50,8 +52,14 @@ function keepSignaling(getPeer) {
 }
 
 /* ---------- Rechner ---------- */
-export function startHost({ onState, onStatus, onResult }) {
-  const id = PREFIX + crypto.randomUUID();
+// fresh = neuen QR-Code erzeugen. Sonst wird die ID dieses Browser-Tabs weiterverwendet:
+// Nach dem Neuladen der Seite am Rechner bleibt der QR-Code gleich und das Handy verbindet sich von selbst wieder.
+const HOST_STORE = 'gc-host-id';
+export function startHost({ onState, onStatus, onResult, fresh = false }) {
+  let saved = null;
+  try { saved = !fresh && sessionStorage.getItem(HOST_STORE); } catch {}
+  const id = saved && saved.startsWith(PREFIX) ? saved : PREFIX + crypto.randomUUID();
+  try { sessionStorage.setItem(HOST_STORE, id); } catch {}
   let peer = null;
   let stopped = false;
   let announced = false;
