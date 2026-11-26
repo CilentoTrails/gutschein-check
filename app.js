@@ -334,7 +334,7 @@ const NUMBER_TEMPLATES = [
   [4, 4, 4, 4, 4], // ALDI/Lidl (Helaba): 20-stellige Gutscheinnummer
   [4, 4, 4, 4, 2], // neuere Lidl-Karten: 18-stellig (0134 2850 5916 2570 02)
   [3, 7, 1, 3, 2, 2, 4, 4, 4, 2], // EDEKA: 010 4041578 9 023 09 21 0860 … (GS1)
-  [4, 4, 4, 4, 4, 4], // dm: 24-stellige Kartennummer 9071 …
+  [4, 4, 4, 4, 4, 4], // dm: 24-stellige Kartennummer 9071 … / 9051 …
 ];
 
 // Mehrheitsentscheid je Stelle (gewichtet mit Sicherheit)
@@ -433,14 +433,27 @@ const PIN_LAYOUT = {
   // Lidl: Hologramm-Feld über dem rechten Drittel des Barcodes, neben „Seriennr.“
   lidl: (L, T) => ({ du: L * 0.32, dv: -T / 2 - L * 0.09, bw: L * 0.4, bh: L * 0.18 }),
   // dm: Code im Hologramm-Feld rechts oberhalb des Barcodes, hinter „Code:“
-  dm: (L, T) => ({ du: L * 0.56, dv: -T / 2 - L * 0.12, bw: L * 0.32, bh: L * 0.17 }),
+  // (ältere Karten mit 8-stelliger Nummer weiter rechts, neuere ohne sie weiter links: beide prüfen)
+  dm: (L, T) => [
+    { du: L * 0.56, dv: -T / 2 - L * 0.12, bw: L * 0.32, bh: L * 0.17 },
+    { du: L * 0.44, dv: -T / 2 - L * 0.1, bw: L * 0.3, bh: L * 0.18 },
+  ],
   // EDEKA (A1 Bank): Silberstreifen oben links über dem Text
   edeka: (L) => ({ du: -L * 0.33, dv: -L * 0.42, bw: L * 0.65, bh: L * 0.26 }),
 };
 
 async function readPinAt(canvas, loc, brand) {
-  const lay = PIN_LAYOUT[brand]?.(loc.L, loc.T);
-  if (!lay) return { value: '', conf: 0 };
+  const lays = [PIN_LAYOUT[brand]?.(loc.L, loc.T)].flat().filter(Boolean);
+  let best = { value: '', conf: 0 };
+  for (const lay of lays) {
+    const r = await readPinIn(canvas, loc, lay);
+    if (r.conf > best.conf) best = r;
+    if (best.conf >= 85) break;
+  }
+  return best;
+}
+
+async function readPinIn(canvas, loc, lay) {
   const k = Math.max(1, Math.min(6, 300 / lay.bh));
   const crop = cropAligned(canvas, loc, { ...lay, k });
   // mehrere Textzeilen im Bereich prüfen; PIN = Zeile aus genau 4 Ziffern (kein Fließtext)
@@ -448,7 +461,14 @@ async function readPinAt(canvas, loc, brand) {
   for (const box of findTextRows(crop, { minChars: 3, maxRows: 4 })) {
     if (box.chars > 7) continue;
     const plain = await ocrLines(enhance(cutBox(crop, box, 36), 0, 0), { tessedit_pageseg_mode: '7' });
-    if (/[a-zA-Z]{2,}/.test(plain.map((l) => l.text).join(' '))) continue; // Wörter -> kein PIN
+    const ptext = plain.map((l) => l.text).join(' ');
+    if (/[a-zA-Z]{2,}/.test(ptext)) {
+      // Wörter -> kein PIN, außer direkt hinter „Code:“/„PIN“ (z. B. dm: „Code: 9959“ in einer Zeile)
+      const m = ptext.match(/(?:code|pin)\W{0,3}([0-9OoIl]{4})(?![0-9])/i);
+      const conf = plain.reduce((a, l) => a + l.conf, 0) / (plain.length || 1);
+      if (m && conf > best.conf) best = { value: m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1'), conf };
+      continue;
+    }
     const r = await readDigitRow(crop, 3, [[4]], box);
     const d = r?.text.replace(/\s/g, '') || '';
     if (/^\d{4}$/.test(d) && r.conf > best.conf) best = { value: d, conf: r.conf };

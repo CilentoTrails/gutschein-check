@@ -9,7 +9,7 @@ export const BRANDS = {
     color: '#1b3d8f',
     url: 'https://www.dm.de/services/services-im-markt/geschenkkarten-3480686#abfrage-guthaben',
     where: {
-      card24: '24-stellige Zahl direkt unter dem Barcode (beginnt mit 9071).',
+      card24: '24-stellige Zahl direkt unter dem Barcode (beginnt mit 90).',
       card8: 'Hinter „Kartennummer:“, 8 Zeichen (Buchstaben und Ziffern).',
       pin: '4-stellig hinter „Code:“ im Hologramm-Feld rechts oberhalb des Barcodes.',
     },
@@ -91,7 +91,7 @@ function scoreBrands(text, barcodes, pseudo = []) {
 
   for (const b of barcodes) {
     const d = digits(b.text);
-    if (/^9071\d{20}$/.test(d)) s.dm += 4;
+    if (/^90\d{22}$/.test(d)) s.dm += 4;
     if (/^0104041578\d{6}21\d{14}$/.test(d)) s.edeka += 5;
     if (/aztec/i.test(b.format)) s.rewe += 2;
     if (/^0104053868100364/.test(d)) s.aldi += 3;
@@ -104,7 +104,7 @@ function scoreBrands(text, barcodes, pseudo = []) {
     if (/^\d{20}$/.test(b.text)) s.aldi += 0.5;
     if (/^01\d{16}$/.test(b.text)) s.lidl += 1; // 18-stellig, beginnt mit 01: neuere Lidl-Karten
     if (/4041578\d{6}21\d{10,}/.test(b.text)) s.edeka += 4;
-    if (/9071\d{18,}/.test(b.text)) s.dm += 2;
+    if (/90[57]1\d{18,}/.test(b.text)) s.dm += 2;
   }
   return s;
 }
@@ -179,7 +179,8 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
     case 'dm': {
       // Prüfseite: „8- oder 24-stellige Kartennummer“, dann „Code“.
       // Die 24-stellige Nummer steht exakt im Barcode -> bevorzugt; die 8 Zeichen nur als Ersatz.
-      const long = pick(/^(9071\d{20})$/, /(9071\d{20})/);
+      // 24-stellig, beginnt mit 90 (z. B. 9071 …, neuere Karten ohne 8-stellige Nummer: 9051 …)
+      const long = pick(/^(90\d{22})$/, /(90\d{22})/);
       if (long.m) f('card24', 'Kartennummer (24-stellig)', long.m[1], true, long.ocr);
       if (!long.m || long.ocr) {
         const cands = lines
