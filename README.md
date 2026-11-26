@@ -28,12 +28,22 @@ Barcode-Werte sind exakt. PIN und Code kommen aus der Texterkennung (oft auf Hol
 
 Tipp: Karte so nah halten, dass sie den Rahmen fast füllt. Laptop-Webcams (oft 720p, Fixfokus) liefern bei kleinen Karten zu wenig Schärfe. Mit der Handykamera geht es meist deutlich besser.
 
+## Handy als Kamera (QR-Code)
+
+Am Rechner „Handy als Kamera verbinden“ wählen und den QR-Code mit dem Handy scannen. Das Handy erkennt die Karte selbst. Nur das Ergebnis (Marke, Nummer, PIN, Rohtext) geht direkt an den Rechner, dort wird kopiert.
+
+- Verbindung per WebRTC über [PeerJS](https://peerjs.com/docs/). Die Daten sind Ende-zu-Ende verschlüsselt (DTLS). Der kostenlose PeerJS-Vermittlungsserver sieht nur die zufällige Verbindungs-ID. Klappt keine Direktverbindung, etwa bei Mobilfunk oder strengem NAT, leitet der öffentliche PeerJS-TURN-Server die weiterhin verschlüsselten Daten weiter.
+- Die ID ist eine zufällige UUID, gilt nur für diese Sitzung, und es kann sich nur ein Handy gleichzeitig verbinden. Empfangene Daten werden nur als Text angezeigt.
+- Der Rechner muss die Seite über die öffentliche Adresse geöffnet haben (nicht `localhost`), sonst führt der QR-Link ins Leere.
+- Ein anderer PeerJS-Server lässt sich über `window.GC_PEER_OPTIONS` setzen (z. B. für Tests).
+
 ## Technik
 
 - Barcode/Aztec: [zxing-wasm](https://github.com/Sec-ant/zxing-wasm) (zxing-cpp), Apache-2.0
 - Texterkennung: [Tesseract.js](https://github.com/naptha/tesseract.js) v5 mit `eng` (best_int), Apache-2.0
+- Kopplung: [PeerJS](https://github.com/peers/peerjs) 1.5.5, MIT; QR-Code: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4, MIT
 - Alle Bibliotheken liegen in `vendor/`, es gibt keine Abhängigkeit von CDNs. Beim ersten Laden kommen etwa 8 MB, danach liegen sie im Cache (Service Worker).
-- Logik: `brands.js` (Markenerkennung, Feld-Extraktion, Lage der Felder), `vision.js` (Barcode-Bereich, Zuschnitt, Ziffernzeilen, Schärfe), `app.js` (Kamera, Ablauf, UI)
+- Logik: `brands.js` (Markenerkennung, Feld-Extraktion, Lage der Felder), `vision.js` (Barcode-Bereich, Zuschnitt, Ziffernzeilen, Schärfe), `pair.js` (Kopplung Handy ↔ Rechner), `app.js` (Kamera, Ablauf, UI)
 
 ## Lokal starten
 

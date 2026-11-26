@@ -1,4 +1,5 @@
 import { BRANDS, analyze } from './brands.js';
+import { startHost, startGuest, pairCodeFromUrl } from './pair.js';
 import { locateBarcode, cropAligned, enhance, sharpness, findTextRow, findTextRows, cutBox } from './vision.js';
 
 const $ = (s) => document.querySelector(s);
@@ -11,6 +12,12 @@ const els = {
   stop: $('#btn-stop'),
   status: $('#status'),
   result: $('#result'),
+  pairBtn: $('#btn-pair'),
+  pair: $('#pair'),
+  pairQr: $('#pair-qr'),
+  pairState: $('#pair-state'),
+  pairStop: $('#btn-pair-stop'),
+  pairNote: $('#pair-note'),
 };
 
 /* ---------- Barcode (zxing-wasm + BarcodeDetector) ---------- */
@@ -243,6 +250,16 @@ function textScore(lines) {
 function status(msg) {
   els.status.textContent = msg || '';
   els.status.hidden = !msg;
+  guest?.status(msg);
+}
+
+// Ergebnis anzeigen und (wenn mit dem Rechner gekoppelt) dorthin schicken
+function show(r) {
+  render(r);
+  if (guest) {
+    const ok = guest.result(r);
+    pairNote(ok ? 'An den Rechner gesendet ✓ – dort kopieren.' : 'Nicht gesendet: keine Verbindung zum Rechner. QR-Code am Rechner neu scannen.', !ok);
+  }
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -510,12 +527,12 @@ export async function processImage(source) {
   els.result.hidden = true;
   const r = await analyzeFrame(source);
   status('');
-  render(r);
+  show(r);
   return r.res;
 }
 
-function render({ res, lines, barcodes, numberLines = [], located }) {
-  const b = res.brand ? BRANDS[res.brand] : null;
+function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone = false } = {}) {
+  const b = res.brand && Object.hasOwn(BRANDS, res.brand) ? BRANDS[res.brand] : null;
   const r = els.result;
   r.innerHTML = '';
   r.hidden = false;
@@ -529,7 +546,11 @@ function render({ res, lines, barcodes, numberLines = [], located }) {
   for (const f of res.fields) {
     const row = document.createElement('label');
     row.className = 'field' + (f.check ? ' check' : '');
-    row.innerHTML = `<span>${f.label}${f.check ? ' <em>für Prüfseite</em>' : ''}${f.unsure ? ' <strong>bitte mit Karte vergleichen</strong>' : ''}</span>`;
+    const cap = document.createElement('span');
+    cap.append(f.label);
+    if (f.check) cap.append(' ', Object.assign(document.createElement('em'), { textContent: 'für Prüfseite' }));
+    if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { textContent: 'bitte mit Karte vergleichen' }));
+    row.append(cap);
     const wrap = document.createElement('div');
     const inp = document.createElement('input');
     inp.value = f.value;
@@ -577,11 +598,18 @@ function render({ res, lines, barcodes, numberLines = [], located }) {
     r.append(p);
   }
 
-  const again = document.createElement('button');
-  again.className = 'secondary';
-  again.textContent = 'Nächste Karte scannen';
-  again.onclick = () => { r.hidden = true; startCamera(); };
-  r.append(again);
+  if (fromPhone) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = 'Vom Handy empfangen. Nächste Karte einfach am Handy scannen.';
+    r.append(p);
+  } else {
+    const again = document.createElement('button');
+    again.className = 'secondary';
+    again.textContent = 'Nächste Karte scannen';
+    again.onclick = () => { r.hidden = true; startCamera(); };
+    r.append(again);
+  }
 
   const dbg = document.createElement('details');
   dbg.innerHTML = '<summary>Erkannter Rohtext</summary>';
@@ -712,7 +740,7 @@ async function scanLoop(id) {
   navigator.vibrate?.(80);
   stopCamera();
   status('');
-  render(best);
+  show(best);
 }
 
 els.start.onclick = startCamera;
@@ -726,5 +754,78 @@ els.file.onchange = async () => {
   els.file.value = '';
   await processImage(img);
 };
+
+/* ---------- Handy als Kamera ---------- */
+let guest = null; // gesetzt, wenn diese Seite das Handy ist
+let host = null; // gesetzt, wenn diese Seite der Rechner ist
+
+function pairNote(text, warn = false) {
+  els.pairNote.textContent = text;
+  els.pairNote.classList.toggle('warn', warn);
+  els.pairNote.hidden = !text;
+}
+
+// Rechner: QR-Code zeigen und auf das Handy warten
+function startPairing() {
+  stopCamera();
+  host?.stop();
+  els.pair.hidden = false;
+  els.pairQr.innerHTML = '';
+  els.pairState.textContent = 'Verbindung wird vorbereitet …';
+  els.pairBtn.hidden = true;
+  host = startHost({
+    onState: (state, info) => {
+      if (state === 'waiting') {
+        const qr = qrcode(0, 'M');
+        qr.addData(info);
+        qr.make();
+        els.pairQr.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true });
+        els.pairQr.hidden = false;
+        els.pairState.textContent = 'QR-Code mit der Handykamera scannen und den Link öffnen.';
+      } else if (state === 'connected') {
+        els.pairQr.hidden = true;
+        els.pairState.textContent = 'Handy verbunden ✓ Karte jetzt am Handy scannen. Nummer und PIN erscheinen hier.';
+      } else if (state === 'disconnected') {
+        els.pairQr.hidden = false;
+        els.pairState.textContent = 'Handy getrennt. Zum erneuten Verbinden den QR-Code noch einmal scannen.';
+      } else if (state === 'error') {
+        els.pairState.textContent = info;
+      }
+    },
+    onStatus: (text) => {
+      els.status.textContent = text ? 'Handy: ' + text : '';
+      els.status.hidden = !text;
+    },
+    onResult: (r) => {
+      els.status.hidden = true;
+      render(r, { fromPhone: true });
+    },
+  });
+}
+
+function stopPairing() {
+  host?.stop();
+  host = null;
+  els.pair.hidden = true;
+  els.pairBtn.hidden = false;
+  status('');
+}
+
+els.pairBtn.onclick = startPairing;
+els.pairStop.onclick = stopPairing;
+
+// Handy: mit dem Rechner aus dem QR-Link verbinden
+const pairCode = pairCodeFromUrl();
+if (pairCode) {
+  els.pairBtn.hidden = true;
+  pairNote('Verbinde mit dem Rechner …');
+  guest = startGuest(pairCode, {
+    onState: (state, info) => {
+      if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓ Karte scannen – das Ergebnis erscheint auch am Rechner.');
+      else if (state === 'disconnected') pairNote('Verbindung zum Rechner getrennt. QR-Code am Rechner neu scannen.', true);
+      else if (state === 'error') pairNote(info, true);
+    },
+  });
+}
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
