@@ -692,12 +692,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     r.append(p);
   }
 
-  if (fromPhone) {
-    const p = document.createElement('p');
-    p.className = 'hint';
-    p.textContent = 'Vom Handy empfangen. Nächste Karte einfach am Handy scannen.';
-    r.append(p);
-  } else {
+  if (!fromPhone) {
     // Handy: Knopf für die nächste Karte bleibt unten am Bildschirm sichtbar
     const bar = document.createElement('div');
     bar.className = 'actions bar';
@@ -709,16 +704,6 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     els.phoneStart.hidden = true; // Knöpfe oben nicht doppelt zeigen
   }
 
-  const dbg = document.createElement('details');
-  dbg.innerHTML = '<summary>Erkannter Rohtext</summary>';
-  const pre = document.createElement('pre');
-  pre.textContent =
-    (barcodes.length ? barcodes.map((x) => `[${x.format}] ${x.text}`).join('\n') + '\n\n' : `[kein Barcode lesbar${located ? ', Bereich gefunden' : ''}]\n\n`) +
-    (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.filter((l) => !l.alt).map((l) => l.text).join(' ') + '\n\n' : '') +
-    lines.map((l) => l.text).join('\n');
-  dbg.append(pre);
-  if (fromPhone || !guest) r.append(dbg);
-  else r.insertBefore(dbg, r.lastChild); // Rohtext über dem Knopf
   if (guest) window.scrollTo({ top: 0, behavior: 'smooth' });
   else r.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
