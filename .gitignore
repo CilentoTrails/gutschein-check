@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+# Niemals echte Kartenfotos committen
+*.jpg
+*.jpeg
+*.heic
+test-photos/
