@@ -35,6 +35,7 @@ Die Seite am Rechner öffnen, der QR-Code erscheint sofort. Ihn mit dem Handy sc
 - Verbindung per WebRTC über [PeerJS](https://peerjs.com/docs/). Die Daten sind Ende-zu-Ende verschlüsselt (DTLS). Der kostenlose PeerJS-Vermittlungsserver sieht nur die zufällige Verbindungs-ID. Klappt keine Direktverbindung, etwa bei Mobilfunk oder strengem NAT, leitet der öffentliche PeerJS-TURN-Server die weiterhin verschlüsselten Daten weiter.
 - Die ID ist eine zufällige UUID, gilt nur für diese Sitzung, und es kann sich nur ein Handy gleichzeitig verbinden. Empfangene Daten werden nur als Text angezeigt.
 - Der Rechner muss die Seite über die öffentliche Adresse geöffnet haben (nicht `localhost`), sonst führt der QR-Link ins Leere.
+- Stabilität: Das Handy sendet alle 3 s ein Lebenszeichen. Tote Verbindungen werden auf beiden Seiten erkannt und automatisch neu aufgebaut, beim Zurückkehren zur Seite sofort. Ergebnisse warten bis zu 2 Minuten auf die Verbindung. Solange die Seite benutzt wird, hält sie den Bildschirm wach (Screen Wake Lock, nach 10 Minuten ohne Bedienung wieder aus).
 - Ein anderer PeerJS-Server lässt sich über `window.GC_PEER_OPTIONS` setzen (z. B. für Tests).
 
 ## Technik
