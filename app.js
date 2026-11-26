@@ -386,8 +386,6 @@ async function readDigitRow(crop, minChars, templates = [], box = findTextRow(cr
     const text = lines.map((l) => l.text).join(' ').trim();
     const conf = lines.reduce((s, l) => s + l.conf, 0) / (lines.length || 1);
     if (text) reads.push({ text, d: text.replace(/\D/g, ''), conf });
-    // kurze Felder (PIN): zwei übereinstimmende sichere Lesungen reichen
-    if (minChars <= 4 && reads.length >= 2 && reads.at(-1).d === reads.at(-2).d && conf > 80) break;
   }
   if (!reads.length) return null;
   // 1. bekanntes Druckbild
@@ -467,7 +465,8 @@ async function readPinIn(canvas, loc, lay) {
       // Wörter -> kein PIN, außer direkt hinter „Code:“/„PIN“ (z. B. dm: „Code: 9959“ in einer Zeile)
       const m = ptext.match(/(?:code|pin)\W{0,3}([0-9OoIl]{4})(?![0-9])/i);
       const conf = plain.reduce((a, l) => a + l.conf, 0) / (plain.length || 1);
-      if (m && conf > best.conf) best = { value: m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1'), conf };
+      // nur eine Lesung -> nie „sicher“ (höchstens 80)
+      if (m && Math.min(conf, 80) > best.conf) best = { value: m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1'), conf: Math.min(conf, 80) };
       continue;
     }
     const r = await readDigitRow(crop, 3, [[4]], box);
@@ -483,7 +482,7 @@ async function readPinIn(canvas, loc, lay) {
       });
       for (const w of lines.flatMap((l) => l.words)) {
         const d = w.text.replace(/\D/g, '');
-        if (/^\d{4}$/.test(d) && w.conf > best.conf) best = { value: d, conf: w.conf };
+        if (/^\d{4}$/.test(d) && Math.min(w.conf, 80) > best.conf) best = { value: d, conf: Math.min(w.conf, 80) }; // Rückfall nie „sicher“
       }
     }
   }
@@ -592,7 +591,7 @@ function merge(a, b) {
   const fields = a.res.fields.map((f) => {
     const g = b.res.fields.find((x) => x.key === f.key);
     // zwei Bilder lesen unabhängig voneinander dasselbe -> sicher
-    if (g && f.value && f.value === g.value && (f.unsure || g.unsure)) return { ...f, unsure: false, agreed: true };
+    if (g && f.key !== 'pin' && f.value && f.value === g.value && (f.unsure || g.unsure)) return { ...f, unsure: false, agreed: true };
     return g && rank(g) > rank(f) ? g : f;
   });
   for (const g of b.res.fields) if (!fields.some((f) => f.key === g.key)) fields.push(g);
@@ -637,7 +636,6 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     row.className = 'field' + (f.check ? ' check' : '');
     const cap = document.createElement('span');
     cap.append(f.label);
-    if (f.check) cap.append(' ', Object.assign(document.createElement('em'), { textContent: 'für Prüfseite' }));
     if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Bitte mit Karte vergleichen' }));
     row.append(cap);
     const wrap = document.createElement('div');
