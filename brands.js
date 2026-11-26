@@ -187,8 +187,8 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       const valid = exact || cands.find((x) => gs1Valid('04041578' + x.m[1]));
       f('pin', 'PIN-Code', pin, true);
       // Feld 1 = die 6 Ziffern nach „…4041578“ bis vor „21“ (z. B. „010 4041578 9 023 09 21“ -> 902309)
-      f('part1', 'Kartennummer – Feld 1 (6 Ziffern nach „010 4041578“)', (valid || main)?.m[1], true, !valid);
-      f('part2', 'Kartennummer – Feld 2 (14 Ziffern nach „21“)', main?.m[2], true, !exact && !(main?.b.conf >= 92));
+      f('part1', 'Feld 1 (6-stellig)', (valid || main)?.m[1], true, !valid);
+      f('part2', 'Feld 2 (14-stellig)', main?.m[2], true, !exact && !(main?.b.conf >= 92));
       break;
     }
     case 'aldi':
