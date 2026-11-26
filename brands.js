@@ -204,10 +204,10 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       const main = exact || cands[0];
       const valid = exact || cands.find((x) => gs1Valid('04041578' + x.m[1]));
       f('pin', 'PIN-Code', pin, true);
-      // Feld 1 = die fett gedruckten Ziffern vor „21“ (z. B. „010 4041578 9 **023 09** 21“ -> 02309).
-      // Die normal gedruckte Ziffer davor (hier 9) gehört nicht dazu.
+      // Feld 1 = immer nur die fett gedruckten Ziffern vor „21“ (z. B. „010 4041578 9 **023 09** 21“ -> 02309):
+      // die letzten 5 Ziffern der GTIN. Die normal gedruckte Ziffer davor gehört nie dazu.
       const tail = (valid || main)?.m[1];
-      const field1 = tail && tail.startsWith('9') ? tail.slice(1) : tail;
+      const field1 = tail ? tail.slice(1) : '';
       f('part1', 'Kartennummer – Feld 1 (fett gedruckt, vor „21“)', field1, true, !valid);
       f('part2', 'Kartennummer – Feld 2 (14 Ziffern nach „21“)', main?.m[2], true, !exact && !(main?.b.conf >= 92));
       break;
