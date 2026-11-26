@@ -18,34 +18,34 @@
   <main>
     <header>
       <h1>Gutschein-Check</h1>
-      <p>Karte mit der Rückseite nah vor die Kamera halten, sodass sie den Rahmen fast füllt. Marke, Nummer und Code werden automatisch erkannt. Mit der Handykamera klappt es meist besser als mit einer Laptop-Webcam.</p>
+      <p class="desk-only">Scanne den QR-Code mit deinem Handy. Das Handy liest die Karte, Nummer und PIN erscheinen hier zum Kopieren.</p>
     </header>
 
-    <div class="actions">
-      <button id="btn-camera" type="button">Kamera starten</button>
+    <!-- Rechner: QR-Code zum Koppeln -->
+    <section id="pair" class="desk-only">
+      <div id="pair-qr" hidden></div>
+      <p id="pair-state">Verbindung wird vorbereitet …</p>
+      <p class="hint">Das Handy erkennt die Karte selbst und schickt nur das Ergebnis direkt und verschlüsselt an diesen Rechner.</p>
+      <button id="btn-pair-new" type="button" class="secondary">Neuen QR-Code erzeugen</button>
+    </section>
+
+    <!-- Handy: Karte scannen -->
+    <p id="pair-note" class="phone-only" role="status" hidden></p>
+    <div id="phone-start" class="actions phone-only">
+      <button id="btn-camera" type="button">Karte scannen</button>
       <label class="button secondary">
-        Foto wählen
-        <input id="file" type="file" accept="image/*" hidden>
+        Foto
+        <input id="file" type="file" accept="image/*" capture="environment" hidden>
       </label>
     </div>
-
-    <button id="btn-pair" type="button" class="secondary pair-btn">Handy als Kamera verbinden (QR-Code)</button>
-    <p id="pair-note" role="status" hidden></p>
-
-    <section id="pair" hidden>
-      <div id="pair-qr" hidden></div>
-      <p id="pair-state"></p>
-      <p class="hint">Das Handy erkennt die Karte selbst und schickt nur das Ergebnis direkt und verschlüsselt an diesen Rechner.</p>
-      <button id="btn-pair-stop" type="button" class="secondary">Verbindung beenden</button>
-    </section>
 
     <section id="stage" hidden>
       <div class="viewport">
         <video id="video" playsinline muted></video>
         <div class="frame"></div>
       </div>
-      <div class="actions">
-        <button id="btn-snap" type="button">Jetzt auslesen</button>
+      <div class="actions bar">
+        <button id="btn-snap" type="button">Auslesen &amp; senden</button>
         <button id="btn-stop" type="button" class="secondary">Abbrechen</button>
       </div>
     </section>
@@ -55,7 +55,7 @@
     <section id="result" hidden></section>
 
     <footer>
-      Alles läuft nur auf deinem Gerät. Fotos und Kartendaten werden nicht hochgeladen. Beim Koppeln mit dem Handy gehen nur die erkannten Felder direkt und verschlüsselt an den Rechner.
+      Fotos bleiben auf dem Handy. Nur die erkannten Felder gehen direkt und verschlüsselt an den Rechner.
     </footer>
   </main>
 

@@ -12,11 +12,12 @@ const els = {
   stop: $('#btn-stop'),
   status: $('#status'),
   result: $('#result'),
-  pairBtn: $('#btn-pair'),
+  viewport: $('.viewport'),
+  phoneStart: $('#phone-start'),
   pair: $('#pair'),
   pairQr: $('#pair-qr'),
   pairState: $('#pair-state'),
-  pairStop: $('#btn-pair-stop'),
+  pairNew: $('#btn-pair-new'),
   pairNote: $('#pair-note'),
 };
 
@@ -588,7 +589,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     r.append(row);
   }
 
-  if (b) {
+  if (b && !guest) {
     const a = document.createElement('a');
     a.className = 'cta';
     a.href = b.url;
@@ -596,10 +597,10 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     a.rel = 'noopener noreferrer';
     a.textContent = `Guthaben bei ${b.name} prüfen ↗`;
     r.append(a);
-  } else {
+  } else if (!b) {
     const p = document.createElement('p');
     p.className = 'hint';
-    p.textContent = 'Tipp: Karte näher an die Kamera halten, bis sie den Rahmen fast füllt. Gutes Licht, keine Spiegelung, kurz ruhig halten. Laptop-Webcams sind oft zu unscharf, mit dem Handy klappt es meist besser.';
+    p.textContent = 'Tipp: Karte näher an die Kamera halten, bis sie den Rahmen fast füllt. Gutes Licht, keine Spiegelung, kurz ruhig halten.';
     r.append(p);
   }
 
@@ -609,11 +610,19 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     p.textContent = 'Vom Handy empfangen. Nächste Karte einfach am Handy scannen.';
     r.append(p);
   } else {
+    // Handy: Knopf für die nächste Karte bleibt unten am Bildschirm sichtbar
+    const bar = document.createElement('div');
+    bar.className = 'actions bar';
     const again = document.createElement('button');
-    again.className = 'secondary';
-    again.textContent = 'Nächste Karte scannen';
+    again.textContent = 'Nächste Karte';
     again.onclick = () => { r.hidden = true; startCamera(); };
-    r.append(again);
+    const photo = document.createElement('button');
+    photo.className = 'secondary';
+    photo.textContent = 'Foto';
+    photo.onclick = () => els.file.click();
+    bar.append(again, photo);
+    r.append(bar);
+    els.phoneStart.hidden = true; // Knöpfe oben nicht doppelt zeigen
   }
 
   const dbg = document.createElement('details');
@@ -624,8 +633,10 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     (numberLines.length ? '[Nummer unter dem Barcode] ' + numberLines.map((l) => l.text).join(' ') + '\n\n' : '') +
     lines.map((l) => l.text).join('\n');
   dbg.append(pre);
-  r.append(dbg);
-  r.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (fromPhone || !guest) r.append(dbg);
+  else r.insertBefore(dbg, r.lastChild); // Rohtext über dem Knopf
+  if (guest) window.scrollTo({ top: 0, behavior: 'smooth' });
+  else r.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ---------- Kamera ---------- */
@@ -644,15 +655,20 @@ async function startCamera() {
       audio: false,
     });
   } catch (e) {
-    status('Kamera nicht verfügbar. Nutze „Foto wählen“. (' + e.name + ')');
+    status('Kamera nicht verfügbar. Nutze „Foto“. (' + e.name + ')');
     return;
   }
   const track = stream.getVideoTracks()[0];
   track.applyConstraints?.({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
   els.video.srcObject = stream;
   await els.video.play();
+  // Vorschau im Seitenverhältnis der Kamera, aber höchstens ~55 % der Bildschirmhöhe,
+  // damit der Auslöse-Knopf ohne Scrollen sichtbar bleibt
+  els.viewport.style.setProperty('--ar', String(els.video.videoWidth / els.video.videoHeight || 16 / 9));
+  els.phoneStart.hidden = true;
   els.stage.hidden = false;
   els.result.hidden = true;
+  els.stage.scrollIntoView({ block: 'start' });
   status('Karte mit der Rückseite (Barcode) in den Rahmen halten, möglichst nah und ruhig …');
   ocrWorker(); // OCR schon mal im Hintergrund laden
   scanLoop(++session);
@@ -663,12 +679,18 @@ function stopCamera() {
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
   els.stage.hidden = true;
+  els.phoneStart.hidden = false;
 }
 
-// Rahmen-Ausschnitt (entspricht .frame in style.css: inset 12% 8%)
+// Rahmen-Ausschnitt (entspricht .frame in style.css: inset 12% 8% des sichtbaren Bereichs).
+// Die Vorschau zeigt mit object-fit: cover nur einen Ausschnitt des Kamerabilds.
 function frameCrop(video, maxSide) {
-  const w = video.videoWidth, h = video.videoHeight;
-  const x = w * 0.08, y = h * 0.12, cw = w * 0.84, ch = h * 0.76;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const ew = video.clientWidth || vw, eh = video.clientHeight || vh;
+  const k = Math.max(ew / vw, eh / vh);
+  const w = ew / k, h = eh / k; // sichtbarer Bereich in Kamerapixeln
+  const ox = (vw - w) / 2, oy = (vh - h) / 2;
+  const x = ox + w * 0.08, y = oy + h * 0.12, cw = w * 0.84, ch = h * 0.76;
   const s = Math.min(1, maxSide / Math.max(cw, ch));
   const c = document.createElement('canvas');
   c.width = Math.round(cw * s);
@@ -772,12 +794,10 @@ function pairNote(text, warn = false) {
 
 // Rechner: QR-Code zeigen und auf das Handy warten
 function startPairing() {
-  stopCamera();
   host?.stop();
-  els.pair.hidden = false;
   els.pairQr.innerHTML = '';
+  els.pairQr.hidden = true;
   els.pairState.textContent = 'Verbindung wird vorbereitet …';
-  els.pairBtn.hidden = true;
   host = startHost({
     onState: (state, info) => {
       if (state === 'waiting') {
@@ -810,21 +830,13 @@ function startPairing() {
   });
 }
 
-function stopPairing() {
-  host?.stop();
-  host = null;
-  els.pair.hidden = true;
-  els.pairBtn.hidden = false;
-  status('');
-}
-
-els.pairBtn.onclick = startPairing;
-els.pairStop.onclick = stopPairing;
-
-// Handy: mit dem Rechner aus dem QR-Link verbinden
+// Rechner (Seite ohne Kopplungs-Code): sofort QR-Code zeigen.
+// Handy (über den QR-Link geöffnet): Karte scannen und Ergebnis an den Rechner schicken.
 const pairCode = pairCodeFromUrl();
-if (pairCode) {
-  els.pairBtn.hidden = true;
+document.body.classList.add(pairCode ? 'mode-phone' : 'mode-desk');
+els.pairNew.onclick = startPairing;
+if (!pairCode) startPairing();
+else {
   pairNote('Verbinde mit dem Rechner …');
   guest = startGuest(pairCode, {
     onState: (state, info) => {
