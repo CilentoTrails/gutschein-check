@@ -18,16 +18,17 @@
   <main>
     <header>
       <h1>Gutschein-Check</h1>
-      <p class="desk-only">Scanne den QR-Code mit deinem Handy. Das Handy liest die Karte, Nummer und PIN erscheinen hier zum Kopieren.</p>
       <ul class="hints">
-        <li>Es werden keine Kartendaten gespeichert.</li>
-        <li>Bitte rubbel das PIN-Feld gut frei, damit es gut funktioniert.</li>
+        <li>Es werden keine Kartendaten oder Fotos gespeichert.</li>
+        <li>Rubbel das PIN-Feld auf der Karte gut frei.</li>
+        <li>Für eine stabile Verbindung am besten Handy und Laptop im gleichen WLAN einloggen.</li>
       </ul>
     </header>
 
     <!-- Rechner: QR-Code zum Koppeln -->
     <section id="pair" class="desk-only">
       <div id="pair-qr" hidden></div>
+      <p id="pair-thanks" hidden>Danke, dass du hilfst!</p>
       <p id="pair-state">Verbindung wird vorbereitet …</p>
       <button id="btn-pair-new" type="button" class="secondary">Neuen QR-Code erzeugen</button>
     </section>
