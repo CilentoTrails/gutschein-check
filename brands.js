@@ -129,14 +129,6 @@ function findPin(lines, digitLines, barcodeDigits) {
   return c[0]?.v || '';
 }
 
-function longNumberAfter(text, labelRe, min, max) {
-  const re = new RegExp(labelRe.source + '\\s*[.:]*\\s*([0-9oOIl| ]{' + min + ',' + (max + 10) + '})', 'i');
-  const m = text.match(re);
-  if (!m) return '';
-  const d = toDigits(m[1]);
-  return d.length >= min ? d.slice(0, max) : '';
-}
-
 // numberLines = per Texterkennung gelesene Klartext-Nummer unter dem Barcode.
 // Sie ersetzt den Barcode, wenn der nicht lesbar war; Werte daraus gelten als unsicher.
 export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) {
@@ -193,8 +185,6 @@ export function analyze({ barcodes, lines, digitLines = [], numberLines = [] }) 
       const num = g ? g[1] || g[2] : '';
       f('card', brand === 'aldi' ? 'Gutscheinnummer (20-stellig)' : 'Gutscheinnummer', num, true, ocr);
       f('pin', 'PIN', pin, true);
-      const s = longNumberAfter(text, /seriennr/, 12, 19);
-      if (s) f('serial', 'Seriennummer', s);
       break;
     }
     case 'rewe': {

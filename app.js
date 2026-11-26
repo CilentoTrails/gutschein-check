@@ -5,7 +5,7 @@ import { locateBarcode, cropAligned, enhance, sharpness, findTextRow, findTextRo
 const $ = (s) => document.querySelector(s);
 const els = {
   start: $('#btn-camera'),
-  file: $('#file'),
+  frame: $('.frame'),
   stage: $('#stage'),
   video: $('#video'),
   snap: $('#btn-snap'),
@@ -259,7 +259,12 @@ function show(r) {
   render(r);
   if (guest) {
     pairNote('Wird an den Rechner gesendet …');
-    guest.result(r).then((ok) =>
+    let waited = false;
+    const onWait = () => {
+      if (!waited) pairNote('Wartet auf die Verbindung zum Rechner … (wird automatisch gesendet)', true);
+      waited = true;
+    };
+    guest.result(r, onWait).then((ok) =>
       pairNote(
         ok ? 'Am Rechner angekommen ✓ – dort kopieren.' : 'Nicht am Rechner angekommen. Ist die Seite dort noch offen? Sonst QR-Code neu scannen. Die Werte stehen auch hier unten.',
         !ok
@@ -555,7 +560,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     const cap = document.createElement('span');
     cap.append(f.label);
     if (f.check) cap.append(' ', Object.assign(document.createElement('em'), { textContent: 'für Prüfseite' }));
-    if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { textContent: 'bitte mit Karte vergleichen' }));
+    if (f.unsure) cap.append(' ', Object.assign(document.createElement('strong'), { className: 'warn-badge', textContent: '⚠ Bitte mit Karte vergleichen' }));
     row.append(cap);
     const wrap = document.createElement('div');
     const inp = document.createElement('input');
@@ -616,11 +621,7 @@ function render({ res, lines, barcodes, numberLines = [], located }, { fromPhone
     const again = document.createElement('button');
     again.textContent = 'Nächste Karte';
     again.onclick = () => { r.hidden = true; startCamera(); };
-    const photo = document.createElement('button');
-    photo.className = 'secondary';
-    photo.textContent = 'Foto';
-    photo.onclick = () => els.file.click();
-    bar.append(again, photo);
+    bar.append(again);
     r.append(bar);
     els.phoneStart.hidden = true; // Knöpfe oben nicht doppelt zeigen
   }
@@ -655,7 +656,7 @@ async function startCamera() {
       audio: false,
     });
   } catch (e) {
-    status('Kamera nicht verfügbar. Nutze „Foto“. (' + e.name + ')');
+    status('Kamera nicht verfügbar. Bitte den Zugriff auf die Kamera erlauben und neu laden. (' + e.name + ')');
     return;
   }
   const track = stream.getVideoTracks()[0];
@@ -682,15 +683,20 @@ function stopCamera() {
   els.phoneStart.hidden = false;
 }
 
-// Rahmen-Ausschnitt (entspricht .frame in style.css: inset 12% 8% des sichtbaren Bereichs).
+// Rahmen-Ausschnitt: genau der Bereich, den der Rahmen (.frame) in der Vorschau zeigt.
 // Die Vorschau zeigt mit object-fit: cover nur einen Ausschnitt des Kamerabilds.
 function frameCrop(video, maxSide) {
   const vw = video.videoWidth, vh = video.videoHeight;
-  const ew = video.clientWidth || vw, eh = video.clientHeight || vh;
-  const k = Math.max(ew / vw, eh / vh);
-  const w = ew / k, h = eh / k; // sichtbarer Bereich in Kamerapixeln
-  const ox = (vw - w) / 2, oy = (vh - h) / 2;
-  const x = ox + w * 0.08, y = oy + h * 0.12, cw = w * 0.84, ch = h * 0.76;
+  const vr = video.getBoundingClientRect(), fr = els.frame.getBoundingClientRect();
+  let x = 0, y = 0, cw = vw, ch = vh;
+  if (vr.width && fr.width) {
+    const k = Math.max(vr.width / vw, vr.height / vh); // Bildschirm-px pro Kamera-px
+    const ox = (vr.width - vw * k) / 2, oy = (vr.height - vh * k) / 2; // Versatz (negativ = abgeschnitten)
+    x = Math.max(0, (fr.left - vr.left - ox) / k);
+    y = Math.max(0, (fr.top - vr.top - oy) / k);
+    cw = Math.min(vw - x, fr.width / k);
+    ch = Math.min(vh - y, fr.height / k);
+  }
   const s = Math.min(1, maxSide / Math.max(cw, ch));
   const c = document.createElement('canvas');
   c.width = Math.round(cw * s);
@@ -773,14 +779,6 @@ async function scanLoop(id) {
 els.start.onclick = startCamera;
 els.snap.onclick = () => { manual = true; status('Lese aus …'); };
 els.stop.onclick = () => { stopCamera(); status(''); };
-els.file.onchange = async () => {
-  const file = els.file.files[0];
-  if (!file) return;
-  stopCamera();
-  const img = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  els.file.value = '';
-  await processImage(img);
-};
 
 /* ---------- Handy als Kamera ---------- */
 let guest = null; // gesetzt, wenn diese Seite das Handy ist
@@ -842,9 +840,31 @@ else {
     onState: (state, info) => {
       if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓ Karte scannen – das Ergebnis erscheint auch am Rechner.');
       else if (state === 'reconnecting') pairNote('Verbindung zum Rechner unterbrochen – verbinde neu …', true);
+      else if (state === 'waiting-host') pairNote('Rechner gerade nicht erreichbar – versuche weiter … (Ist die Seite dort noch offen?)', true);
       else if (state === 'error') pairNote(info, true);
     },
   });
+}
+
+// Handy: Bildschirm wach halten, solange die Seite offen ist und benutzt wird (Screen Wake Lock).
+// Sonst sperrt sich das Handy beim Liegenlassen, und der Browser trennt die Verbindung.
+// Nach 10 Minuten ohne Bedienung wieder freigeben (Akku).
+if (pairCode && 'wakeLock' in navigator) {
+  let lock = null;
+  let lastUse = Date.now();
+  const want = () => document.visibilityState === 'visible' && Date.now() - lastUse < 10 * 60 * 1000;
+  const acquire = async () => {
+    if (lock || !want()) return;
+    try {
+      lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => { lock = null; });
+    } catch {} // z. B. Energiesparmodus: dann eben ohne
+  };
+  const used = () => { lastUse = Date.now(); acquire(); };
+  ['pointerdown', 'keydown'].forEach((e) => document.addEventListener(e, used, { passive: true }));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') used(); });
+  setInterval(() => { if (lock && !want()) lock.release().catch(() => {}); }, 30000);
+  acquire();
 }
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});

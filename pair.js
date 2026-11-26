@@ -7,7 +7,9 @@
 // - Mehrere Verbindungen vom Handy werden angenommen (QR-Scanner öffnen Links oft doppelt, Seite neu geladen …).
 // - Der Rechner bestätigt jedes Ergebnis (ack). Ohne Bestätigung sendet das Handy erneut bzw. meldet es.
 // - Das Handy schickt regelmäßig ein Lebenszeichen und verbindet sich nach Abbrüchen neu
-//   (z. B. nach Bildschirmsperre), solange die Seite offen ist.
+//   (z. B. nach Bildschirmsperre), solange die Seite offen ist. Beim Zurückkehren zur Seite
+//   sofort, ohne Wartezeit. Fällt der Vermittlungsdienst ganz aus, wird neu angemeldet.
+// - Ergebnisse warten bis zu 2 Minuten auf die Verbindung, statt verloren zu gehen.
 // - JSON statt Binärformat: funktioniert in allen Browsern (auch Safari) gleich.
 
 const OPTS = window.GC_PEER_OPTIONS || { debug: 0 }; // Standard: kostenloser PeerJS-Server
@@ -25,35 +27,63 @@ const ERRORS = {
 };
 const errText = (e) => ERRORS[e?.type] || 'Verbindung fehlgeschlagen (' + (e?.type || e) + ').';
 
-// Verbindung zum Vermittlungsserver nach Abbruch mit wachsender Pause neu aufbauen
-function keepSignaling(peer) {
+// Verbindung zum Vermittlungsserver nach Abbruch neu aufbauen: kurze, wachsende Pause (max. 10 s),
+// beim Zurückkehren zur Seite sofort.
+function keepSignaling(getPeer) {
   let retry = 0;
-  peer.on('open', () => { retry = 0; });
-  peer.on('disconnected', () => {
-    const wait = Math.min(30000, 2000 * 2 ** retry++);
-    setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, wait);
+  let timer = null;
+  const now = () => {
+    clearTimeout(timer);
+    const peer = getPeer();
+    if (peer && !peer.destroyed && peer.disconnected) peer.reconnect();
+  };
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(now, Math.min(10000, 1000 * 2 ** retry++));
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { retry = 0; now(); }
   });
+  return { opened: () => { retry = 0; }, lost: later };
 }
 
 /* ---------- Rechner ---------- */
 export function startHost({ onState, onStatus, onResult }) {
   const id = PREFIX + crypto.randomUUID();
-  const peer = new Peer(id, OPTS);
+  let peer = null;
+  let stopped = false;
+  let announced = false;
   let conn = null;
   let lastSeen = 0;
   let alive = false;
   const seen = new Set(); // bereits angezeigte Ergebnisse (bei erneutem Senden nicht doppelt)
+  const conns = new Set();
+  const sig = keepSignaling(() => peer);
 
-  peer.on('open', () => {
-    const url = new URL(location.href);
-    url.search = '';
-    url.hash = 'pair=' + id.slice(PREFIX.length);
-    onState('waiting', url.href);
-  });
+  function makePeer() {
+    if (stopped) return;
+    peer = new Peer(id, OPTS); // dieselbe ID auch nach einem Neustart, damit der QR-Code gültig bleibt
+    peer.on('open', () => {
+      sig.opened();
+      if (announced) return;
+      announced = true;
+      const url = new URL(location.href);
+      url.search = '';
+      url.hash = 'pair=' + id.slice(PREFIX.length);
+      onState('waiting', url.href);
+    });
+    peer.on('connection', accept);
+    peer.on('disconnected', sig.lost);
+    peer.on('error', (e) => {
+      // ID noch belegt (alte Anmeldung) oder Dienst weg: gleich noch einmal anmelden
+      if (peer.destroyed) setTimeout(() => { if (peer.destroyed) makePeer(); }, 3000);
+      if (!announced || !conns.size) onState('error', errText(e));
+    });
+  }
+
   // Alle offenen Verbindungen annehmen (QR-Scanner-Vorschau und Browser können beide offen sein);
   // was zuletzt Daten schickt, zählt als aktiv.
-  const conns = new Set();
-  peer.on('connection', (c) => {
+  function accept(c) {
     c.on('open', () => {
       conns.add(c);
       conn = c;
@@ -83,7 +113,8 @@ export function startHost({ onState, onStatus, onResult }) {
       if (!conns.size) { alive = false; onState('disconnected'); }
     });
     c.on('error', () => {});
-  });
+  }
+
   // kein Lebenszeichen mehr (Handy gesperrt, Verbindung tot)
   const watch = setInterval(() => {
     if (conn && alive && Date.now() - lastSeen > PING_MS * 4) {
@@ -91,23 +122,47 @@ export function startHost({ onState, onStatus, onResult }) {
       onState('idle');
     }
   }, 1000);
-  keepSignaling(peer);
-  peer.on('error', (e) => onState('error', errText(e)));
-  return { stop: () => { clearInterval(watch); peer.destroy(); } };
+  const onVisible = () => { if (document.visibilityState === 'visible' && peer?.destroyed) makePeer(); };
+  document.addEventListener('visibilitychange', onVisible);
+  makePeer();
+  return {
+    stop: () => {
+      stopped = true;
+      clearInterval(watch);
+      document.removeEventListener('visibilitychange', onVisible);
+      peer?.destroy();
+    },
+  };
 }
 
 /* ---------- Handy ---------- */
 export function startGuest(code, { onState }) {
   try { sessionStorage.setItem(STORE, code); } catch {}
-  const peer = new Peer(OPTS);
+  let peer = null;
   let conn = null;
   let connecting = false;
   let lastPong = 0;
   const waiting = new Map(); // n -> resolve
   let counter = 0;
+  const sig = keepSignaling(() => peer);
+  const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+  function makePeer() {
+    peer?.destroy();
+    peer = new Peer(OPTS);
+    peer.on('open', () => { sig.opened(); connect(); });
+    peer.on('disconnected', sig.lost);
+    peer.on('error', (e) => {
+      connecting = false;
+      // Rechner gerade nicht angemeldet (z. B. Tab im Hintergrund): einfach weiter versuchen
+      if (e.type === 'peer-unavailable') onState('waiting-host');
+      else onState('error', errText(e));
+      if (peer.destroyed) setTimeout(() => { if (peer.destroyed) makePeer(); }, 3000);
+    });
+  }
 
   function connect() {
-    if (peer.destroyed || connecting || peer.disconnected) return;
+    if (!peer?.open || connecting) return;
     connecting = true;
     const c = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
     const giveUp = setTimeout(() => { if (!c.open) { connecting = false; try { c.close(); } catch {} } }, 8000);
@@ -135,28 +190,29 @@ export function startGuest(code, { onState }) {
     c.on('error', () => {});
   }
 
-  peer.on('open', connect);
-  keepSignaling(peer);
-  peer.on('error', (e) => {
-    connecting = false;
-    // Rechner (noch) nicht erreichbar: weiter versuchen, aber Bescheid geben
-    onState('error', errText(e));
-  });
+  function dropDead() {
+    try { conn?.close(); } catch {}
+    conn = null;
+    onState('reconnecting');
+  }
 
   // Lebenszeichen; tote Verbindung erkennen und neu verbinden
   const beat = setInterval(() => {
     if (conn?.open) {
       try { conn.send({ type: 'ping' }); } catch {}
-      if (Date.now() - lastPong > PING_MS * 4) {
-        try { conn.close(); } catch {}
-        conn = null;
-        onState('reconnecting');
-      }
-    } else if (!connecting && peer.open) connect();
+      if (Date.now() - lastPong > PING_MS * 4) dropDead();
+    } else if (peer?.destroyed) makePeer();
+    else if (!connecting && peer?.open) connect();
   }, PING_MS);
-  // nach Bildschirmsperre / App-Wechsel sofort prüfen
+
+  // Zurück zur Seite (Bildschirm wieder an, App gewechselt): sofort prüfen statt auf den Takt zu warten.
+  // Nach dem Einfrieren ist eine scheinbar offene Verbindung oft tot -> ohne frisches Lebenszeichen neu.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !conn?.open && peer.open) connect();
+    if (document.visibilityState !== 'visible') return;
+    if (peer?.destroyed) return makePeer();
+    if (conn?.open && Date.now() - lastPong > PING_MS * 1.5) dropDead();
+    if (conn?.open) try { conn.send({ type: 'ping' }); } catch {}
+    else if (peer?.open) { connecting = false; connect(); }
   });
 
   const send = (msg) => {
@@ -164,13 +220,18 @@ export function startGuest(code, { onState }) {
     try { conn.send(msg); return true; } catch { return false; }
   };
 
-  // Ergebnis senden und auf Bestätigung warten; bis zu 3 Versuche (auch über Neuverbindung hinweg)
-  async function result(r) {
+  // Ergebnis senden und auf Bestätigung warten. Ist gerade keine Verbindung da, wartet es
+  // bis zu 2 Minuten darauf (z. B. während das Handy neu verbindet).
+  async function result(r, onWait) {
     const n = Date.now().toString(36) + '-' + counter++;
     const msg = { type: 'result', n, data: pack(r) };
-    for (let i = 0; i < 3; i++) {
-      if (!conn?.open) await new Promise((ok) => setTimeout(ok, 2500));
-      if (!send(msg)) continue;
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      if (!send(msg)) {
+        onWait?.();
+        await sleep(1000);
+        continue;
+      }
       const ok = await new Promise((resolve) => {
         waiting.set(n, resolve);
         setTimeout(() => { if (waiting.get(n) === resolve) { waiting.delete(n); resolve(false); } }, ACK_MS);
@@ -180,10 +241,11 @@ export function startGuest(code, { onState }) {
     return false;
   }
 
+  makePeer();
   return {
     status: (text) => send({ type: 'status', text: (text || '').slice(0, LIMIT) }),
     result,
-    stop: () => { clearInterval(beat); peer.destroy(); },
+    stop: () => { clearInterval(beat); peer?.destroy(); },
   };
 }
 
