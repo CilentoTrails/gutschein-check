@@ -19,13 +19,16 @@
     <header>
       <h1>Gutschein-Check</h1>
       <p class="desk-only">Scanne den QR-Code mit deinem Handy. Das Handy liest die Karte, Nummer und PIN erscheinen hier zum Kopieren.</p>
+      <ul class="hints">
+        <li>Es werden keine Kartendaten gespeichert.</li>
+        <li>Bitte rubbel das PIN-Feld gut frei, damit es gut funktioniert.</li>
+      </ul>
     </header>
 
     <!-- Rechner: QR-Code zum Koppeln -->
     <section id="pair" class="desk-only">
       <div id="pair-qr" hidden></div>
       <p id="pair-state">Verbindung wird vorbereitet …</p>
-      <p class="hint">Das Handy erkennt die Karte selbst und schickt nur das Ergebnis direkt und verschlüsselt an diesen Rechner.</p>
       <button id="btn-pair-new" type="button" class="secondary">Neuen QR-Code erzeugen</button>
     </section>
 
@@ -49,10 +52,6 @@
     <p id="status" role="status" hidden></p>
 
     <section id="result" hidden></section>
-
-    <footer>
-      Kamerabilder bleiben auf dem Handy. Nur die erkannten Felder gehen direkt und verschlüsselt an den Rechner.
-    </footer>
   </main>
 
   <script src="vendor/zxing/zxing-reader.js"></script>

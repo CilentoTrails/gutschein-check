@@ -813,6 +813,7 @@ function startPairing() {
   els.pairState.textContent = 'Verbindung wird vorbereitet …';
   host = startHost({
     onState: (state, info) => {
+      els.pair.classList.toggle('connected', state === 'connected');
       if (state === 'waiting') {
         const qr = qrcode(0, 'M');
         qr.addData(info);
@@ -822,7 +823,8 @@ function startPairing() {
         els.pairState.textContent = 'QR-Code mit der Handykamera scannen und den Link öffnen.';
       } else if (state === 'connected') {
         els.pairQr.hidden = true;
-        els.pairState.textContent = 'Handy verbunden ✓ Karte jetzt am Handy scannen. Nummer und PIN erscheinen hier.';
+        const ok = Object.assign(document.createElement('span'), { className: 'check', textContent: '✓' });
+        els.pairState.replaceChildren('Handy verbunden ', ok);
       } else if (state === 'idle') {
         els.pairState.textContent = 'Handy gerade nicht erreichbar (Bildschirm gesperrt?). Es verbindet sich automatisch wieder, sobald die Seite am Handy offen ist.';
       } else if (state === 'disconnected') {
@@ -853,7 +855,7 @@ else {
   pairNote('Verbinde mit dem Rechner …');
   guest = startGuest(pairCode, {
     onState: (state, info) => {
-      if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓ Karte scannen – das Ergebnis erscheint auch am Rechner.');
+      if (state === 'connected') pairNote('Mit dem Rechner verbunden ✓');
       else if (state === 'reconnecting') pairNote('Verbindung zum Rechner unterbrochen – verbinde neu …', true);
       else if (state === 'waiting-host') pairNote('Rechner gerade nicht erreichbar – versuche weiter … (Ist die Seite dort noch offen?)', true);
       else if (state === 'error') pairNote(info, true);

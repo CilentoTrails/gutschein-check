@@ -141,3 +141,16 @@ pre { white-space: pre-wrap; word-break: break-word; }
 }
 #result .actions.bar { background: var(--card); }
 #stage .actions.bar #btn-snap, #result .actions.bar button:first-child { flex: 2; }
+
+/* Hinweise oben */
+.hints { margin: 10px 0 18px; padding-left: 1.2em; color: var(--muted); }
+.hints li { margin: 2px 0; }
+.mode-phone .hints { font-size: .85rem; margin-top: 0; margin-bottom: 8px; }
+
+/* verbunden: nur „Handy verbunden“ mit pinkem Haken */
+#pair.connected #btn-pair-new { display: none; }
+#pair.connected #pair-state { font-size: 1.15rem; font-weight: 600; }
+#pair-state .check {
+  display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; margin-left: 4px;
+  border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700;
+}
